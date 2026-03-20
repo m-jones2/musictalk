@@ -2,20 +2,20 @@ import {
     AudioSession,
     LiveKitRoom,
     registerGlobals,
-    useTracks
+    useRemoteParticipants,
 } from '@livekit/react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Track } from 'livekit-client';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 registerGlobals();
 
 const LIVEKIT_URL = 'wss://musictalk-b7vzplg9.livekit.cloud';
-const TOKEN_SERVER = 'http://192.168.1.244:3000';
+const TOKEN_SERVER = 'http://192.168.0.165:3000';
 
 function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
-  const tracks = useTracks([{ source: Track.Source.Microphone, withPlaceholder: true }]);
+  const remoteParticipants = useRemoteParticipants();
+  const participantCount = remoteParticipants.length + 1;
 
   return (
     <View style={styles.container}>
@@ -25,7 +25,7 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
 
       <View style={styles.statusBox}>
         <Text style={styles.statusText}>
-          👥 {tracks.length} {tracks.length === 1 ? 'person' : 'people'} connected
+          👥 {participantCount} {participantCount === 1 ? 'person' : 'people'} connected
         </Text>
         <Text style={styles.listeningText}>🎤 Listening for voices...</Text>
       </View>
@@ -40,25 +40,49 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
 export default function RoomScreen() {
   const { code } = useLocalSearchParams();
   const router = useRouter();
-  const [token, setToken] = useState('');
+  const [token, setToken] = useState<string | null>(null);
+  const [connected, setConnected] = useState(false);
   const roomCode = Array.isArray(code) ? code[0] : code;
 
   useEffect(() => {
+    setToken(null);
+    setConnected(false);
     AudioSession.startAudioSession();
-    fetch(`${TOKEN_SERVER}?room=${roomCode}&user=user-${Math.random().toString(36).substring(2, 6)}`)
+
+    const controller = new AbortController();
+
+    fetch(
+      `${TOKEN_SERVER}?room=${roomCode}&user=user-${Math.random().toString(36).substring(2, 6)}`,
+      { signal: controller.signal }
+    )
       .then(res => res.json())
       .then(data => {
         console.log('Token received for room:', roomCode);
-        console.log('Token:', data.token);
         setToken(data.token);
+        setConnected(true);
       })
-      .catch(err => console.error('Token error:', err));
+      .catch(err => {
+        if (err.name !== 'AbortError') {
+          console.error('Token error:', err);
+        }
+      });
+
     return () => {
+      controller.abort();
+      setToken(null);
+      setConnected(false);
       AudioSession.stopAudioSession();
     };
   }, [roomCode]);
 
-  if (!token) {
+  const handleLeave = () => {
+    setToken(null);
+    setConnected(false);
+    AudioSession.stopAudioSession();
+    router.back();
+  };
+
+  if (!token || !connected) {
     return (
       <View style={styles.container}>
         <Text style={styles.label}>Connecting...</Text>
@@ -68,13 +92,14 @@ export default function RoomScreen() {
 
   return (
     <LiveKitRoom
+      key={`${roomCode}-${token}`}
       serverUrl={LIVEKIT_URL}
       token={token}
       connect={true}
       audio={true}
       video={false}
     >
-      <RoomContent onLeave={() => router.back()} code={roomCode} />
+      <RoomContent onLeave={handleLeave} code={roomCode} />
     </LiveKitRoom>
   );
 }
