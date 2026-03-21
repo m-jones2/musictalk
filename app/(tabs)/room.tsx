@@ -13,7 +13,7 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 registerGlobals();
 
 const LIVEKIT_URL = 'wss://musictalk-b7vzplg9.livekit.cloud';
-const TOKEN_SERVER = 'http://192.168.1.244:3000';
+const TOKEN_SERVER = 'https://musictalk-production.up.railway.app';
 
 function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
   const remoteParticipants = useRemoteParticipants();
