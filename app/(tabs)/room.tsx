@@ -2,8 +2,10 @@ import {
     AudioSession,
     LiveKitRoom,
     registerGlobals,
+    useLocalParticipant,
     useRemoteParticipants,
 } from '@livekit/react-native';
+import Slider from '@react-native-community/slider';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -11,11 +13,27 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 registerGlobals();
 
 const LIVEKIT_URL = 'wss://musictalk-b7vzplg9.livekit.cloud';
-const TOKEN_SERVER = 'http://192.168.0.165:3000';
+const TOKEN_SERVER = 'http://192.168.1.244:3000';
 
 function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
   const remoteParticipants = useRemoteParticipants();
   const participantCount = remoteParticipants.length + 1;
+const { isMicrophoneEnabled, localParticipant } = useLocalParticipant();
+  const [volume, setVolume] = useState(0.8);
+
+  useEffect(() => {
+    remoteParticipants.forEach(participant => {
+      participant.audioTrackPublications.forEach(publication => {
+        if (publication.track) {
+          publication.track.setVolume(volume);
+        }
+      });
+    });
+  }, [volume, remoteParticipants]);
+  
+  const toggleMute = async () => {
+    await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+  };
 
   return (
     <View style={styles.container}>
@@ -28,6 +46,30 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
           👥 {participantCount} {participantCount === 1 ? 'person' : 'people'} connected
         </Text>
         <Text style={styles.listeningText}>🎤 Listening for voices...</Text>
+      </View>
+
+      <TouchableOpacity
+        style={[styles.muteButton, !isMicrophoneEnabled && styles.mutedButton]}
+        onPress={toggleMute}
+      >
+        <Text style={styles.muteText}>
+          {isMicrophoneEnabled ? '🎤 Mute' : '🔇 Unmute'}
+        </Text>
+      </TouchableOpacity>
+
+      <View style={styles.sliderContainer}>
+        <Text style={styles.sliderLabel}>🎵 Music</Text>
+        <Slider
+          style={styles.slider}
+          minimumValue={0}
+          maximumValue={1}
+          value={volume}
+          onValueChange={setVolume}
+          minimumTrackTintColor="#1DB954"
+          maximumTrackTintColor="#333333"
+          thumbTintColor="#1DB954"
+        />
+        <Text style={styles.sliderLabel}>🎤 Voice</Text>
       </View>
 
       <TouchableOpacity style={styles.leaveButton} onPress={onLeave}>
@@ -165,5 +207,36 @@ const styles = StyleSheet.create({
     color: '#ff4444',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  muteButton: {
+    backgroundColor: '#1a1a1a',
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    borderRadius: 32,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  mutedButton: {
+    backgroundColor: '#ff4444',
+  },
+  muteText: {
+    color: '#ffffff',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+    sliderContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 16,
+  },
+  slider: {
+    flex: 1,
+    marginHorizontal: 8,
+  },
+  sliderLabel: {
+    color: '#888888',
+    fontSize: 12,
   },
 });
