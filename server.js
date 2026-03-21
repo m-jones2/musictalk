@@ -36,6 +36,7 @@ const server = http.createServer(async (req, res) => {
   res.end(JSON.stringify({ token: jwt }));
 });
 
-server.listen(3000, () => {
-  console.log('MusicTalk token server running on http://localhost:3000');
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`MusicTalk token server running on port ${PORT}`);
 });
