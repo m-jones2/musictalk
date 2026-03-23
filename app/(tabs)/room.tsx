@@ -1,9 +1,10 @@
 import {
-    AudioSession,
-    LiveKitRoom,
-    registerGlobals,
-    useLocalParticipant,
-    useRemoteParticipants,
+  AudioSession,
+  LiveKitRoom,
+  registerGlobals,
+  useLocalParticipant,
+  useRemoteParticipants,
+  useSpeakingParticipants,
 } from '@livekit/react-native';
 import Slider from '@react-native-community/slider';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -19,6 +20,9 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
   const remoteParticipants = useRemoteParticipants();
   const participantCount = remoteParticipants.length + 1;
 const { isMicrophoneEnabled, localParticipant } = useLocalParticipant();
+const speakingParticipants = useSpeakingParticipants();
+  const isSomenoneSpeaking = speakingParticipants.length > 0;
+  const speakerNames = speakingParticipants.map(p => p.identity).join(', ');
   const [volume, setVolume] = useState(0.8);
 
   useEffect(() => {
@@ -45,7 +49,9 @@ const { isMicrophoneEnabled, localParticipant } = useLocalParticipant();
         <Text style={styles.statusText}>
           👥 {participantCount} {participantCount === 1 ? 'person' : 'people'} connected
         </Text>
-        <Text style={styles.listeningText}>🎤 Listening for voices...</Text>
+        <Text style={[styles.listeningText, isSomenoneSpeaking && styles.speakingText]}>
+          {isSomenoneSpeaking ? `🗣️ ${speakerNames} is speaking...` : '🎤 Listening for voices...'}
+        </Text>
       </View>
 
       <TouchableOpacity
@@ -238,5 +244,9 @@ const styles = StyleSheet.create({
   sliderLabel: {
     color: '#888888',
     fontSize: 12,
+  },
+  speakingText: {
+    color: '#1DB954',
+    fontWeight: 'bold',
   },
 });
