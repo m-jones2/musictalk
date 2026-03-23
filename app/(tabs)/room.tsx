@@ -9,7 +9,7 @@ import {
 import Slider from '@react-native-community/slider';
 import * as Notifications from 'expo-notifications';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 registerGlobals();
@@ -44,17 +44,34 @@ const speakingParticipants = useSpeakingParticipants();
     });
   }, [volume, remoteParticipants]);
 
+  const prevCountRef = useRef(0);
+
   useEffect(() => {
-    remoteParticipants.forEach(participant => {
+    const currentCount = remoteParticipants.length;
+    const prevCount = prevCountRef.current;
+
+    if (currentCount > prevCount) {
+      const newParticipant = remoteParticipants[currentCount - 1];
       Notifications.scheduleNotificationAsync({
         content: {
-          title: 'Someone joined MusicTalk',
-          body: `${participant.identity} joined your room`,
+          title: '👋 Someone joined MusicTalk',
+          body: `${newParticipant.identity} joined your room`,
           sound: true,
         },
         trigger: null,
       });
-    });
+    } else if (currentCount < prevCount) {
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: '👋 Someone left MusicTalk',
+          body: `A participant left your room`,
+          sound: true,
+        },
+        trigger: null,
+      });
+    }
+
+    prevCountRef.current = currentCount;
   }, [remoteParticipants.length]);
 
   const toggleMute = async () => {
@@ -108,7 +125,8 @@ const speakingParticipants = useSpeakingParticipants();
 }
 
 export default function RoomScreen() {
-  const { code } = useLocalSearchParams();
+  const { code, name } = useLocalSearchParams();
+  const userName = Array.isArray(name) ? name[0] : (name || 'user-' + Math.random().toString(36).substring(2, 6));
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
@@ -123,7 +141,7 @@ export default function RoomScreen() {
     const controller = new AbortController();
 
     fetch(
-      `${TOKEN_SERVER}?room=${roomCode}&user=user-${Math.random().toString(36).substring(2, 6)}`,
+      `${TOKEN_SERVER}?room=${roomCode}&user=${userName}`,
       { signal: controller.signal }
     )
       .then(res => res.json())

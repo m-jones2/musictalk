@@ -1,14 +1,15 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function JoinScreen() {
   const router = useRouter();
+  const { name } = useLocalSearchParams();
   const [code, setCode] = useState('');
 
   const joinGroup = () => {
     if (code.length < 4) return;
-    router.push({ pathname: '/(tabs)/room', params: { code: code.toUpperCase() } });
+    router.push({ pathname: '/(tabs)/room', params: { code: code.toUpperCase(), name } });
   };
 
   return (
