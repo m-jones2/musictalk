@@ -7,6 +7,7 @@ import {
   useSpeakingParticipants,
 } from '@livekit/react-native';
 import Slider from '@react-native-community/slider';
+import * as Notifications from 'expo-notifications';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -15,6 +16,14 @@ registerGlobals();
 
 const LIVEKIT_URL = 'wss://musictalk-b7vzplg9.livekit.cloud';
 const TOKEN_SERVER = 'https://musictalk-production.up.railway.app';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
   const remoteParticipants = useRemoteParticipants();
@@ -34,7 +43,20 @@ const speakingParticipants = useSpeakingParticipants();
       });
     });
   }, [volume, remoteParticipants]);
-  
+
+  useEffect(() => {
+    remoteParticipants.forEach(participant => {
+      Notifications.scheduleNotificationAsync({
+        content: {
+          title: 'Someone joined MusicTalk',
+          body: `${participant.identity} joined your room`,
+          sound: true,
+        },
+        trigger: null,
+      });
+    });
+  }, [remoteParticipants.length]);
+
   const toggleMute = async () => {
     await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
   };
@@ -96,6 +118,7 @@ export default function RoomScreen() {
     setToken(null);
     setConnected(false);
     AudioSession.startAudioSession();
+    Notifications.requestPermissionsAsync();
 
     const controller = new AbortController();
 
