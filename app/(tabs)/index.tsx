@@ -1,10 +1,24 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function HomeScreen() {
   const router = useRouter();
   const [name, setName] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    AsyncStorage.getItem('username').then(savedName => {
+      if (savedName) setName(savedName);
+      setLoading(false);
+    });
+  }, []);
+
+  const saveName = async (value: string) => {
+    setName(value);
+    await AsyncStorage.setItem('username', value);
+  };
 
   const createGroup = () => {
     if (name.length < 2) return;
@@ -17,6 +31,14 @@ export default function HomeScreen() {
     router.push({ pathname: '/(tabs)/join', params: { name } });
   };
 
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.subtitle}>Loading...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>🎵</Text>
@@ -28,7 +50,7 @@ export default function HomeScreen() {
         placeholder="Enter your name"
         placeholderTextColor="#555555"
         value={name}
-        onChangeText={setName}
+        onChangeText={saveName}
         maxLength={20}
       />
 
