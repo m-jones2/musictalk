@@ -25,25 +25,97 @@ Notifications.setNotificationHandler({
   }),
 });
 
+function ParticipantControl({ participant, masterVolume }: { participant: any, masterVolume: number }) {
+  const [relativeVolume, setRelativeVolume] = useState(1.0);
+  const [muted, setMuted] = useState(false);
+
+  useEffect(() => {
+    participant.audioTrackPublications.forEach((publication: any) => {
+      if (publication.track) {
+        publication.track.setVolume(muted ? 0 : masterVolume * relativeVolume);
+      }
+    });
+  }, [masterVolume, relativeVolume, muted]);
+
+  const toggleMute = () => {
+    setMuted(!muted);
+  };
+
+  return (
+    <View style={participantStyles.container}>
+      <Text style={participantStyles.name}>
+        {participant.identity} {muted ? '🔇' : '🔊'}
+      </Text>
+      <View style={participantStyles.controls}>
+        <TouchableOpacity
+          style={[participantStyles.muteBtn, muted && participantStyles.mutedBtn]}
+          onPress={toggleMute}
+        >
+          <Text style={participantStyles.muteBtnText}>
+            {muted ? 'Unmute' : 'Mute'}
+          </Text>
+        </TouchableOpacity>
+        <Slider
+          style={participantStyles.slider}
+          minimumValue={0}
+          maximumValue={2}
+          value={relativeVolume}
+          onValueChange={setRelativeVolume}
+          minimumTrackTintColor="#1DB954"
+          maximumTrackTintColor="#333333"
+          thumbTintColor="#1DB954"
+        />
+      </View>
+    </View>
+  );
+}
+
+const participantStyles = StyleSheet.create({
+  container: {
+    width: '100%',
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: '#222222',
+    borderRadius: 12,
+  },
+  name: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  controls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  muteBtn: {
+    backgroundColor: '#333333',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  mutedBtn: {
+    backgroundColor: '#ff4444',
+  },
+  muteBtnText: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  slider: {
+    flex: 1,
+  },
+});
+
 function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
   const remoteParticipants = useRemoteParticipants();
   const participantCount = remoteParticipants.length + 1;
-const { isMicrophoneEnabled, localParticipant } = useLocalParticipant();
-const speakingParticipants = useSpeakingParticipants();
+  const { isMicrophoneEnabled, localParticipant } = useLocalParticipant();
+  const speakingParticipants = useSpeakingParticipants();
   const isSomenoneSpeaking = speakingParticipants.length > 0;
   const speakerNames = speakingParticipants.map(p => p.identity).join(', ');
   const [volume, setVolume] = useState(0.8);
-
-  useEffect(() => {
-    remoteParticipants.forEach(participant => {
-      participant.audioTrackPublications.forEach(publication => {
-        if (publication.track) {
-          publication.track.setVolume(volume);
-        }
-      });
-    });
-  }, [volume, remoteParticipants]);
-
   const prevCountRef = useRef(0);
 
   useEffect(() => {
@@ -91,6 +163,14 @@ const speakingParticipants = useSpeakingParticipants();
         <Text style={[styles.listeningText, isSomenoneSpeaking && styles.speakingText]}>
           {isSomenoneSpeaking ? `🗣️ ${speakerNames} is speaking...` : '🎤 Listening for voices...'}
         </Text>
+
+        {remoteParticipants.map(participant => (
+          <ParticipantControl
+            key={participant.identity}
+            participant={participant}
+            masterVolume={volume}
+          />
+        ))}
       </View>
 
       <TouchableOpacity
@@ -230,7 +310,7 @@ const styles = StyleSheet.create({
     padding: 24,
     width: '100%',
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 24,
   },
   statusText: {
     fontSize: 16,
@@ -272,7 +352,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-    sliderContainer: {
+  sliderContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     width: '100%',
