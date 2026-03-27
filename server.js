@@ -5,9 +5,17 @@ const url = require('url');
 const API_KEY = 'API8pH7DjdozgXn';
 const API_SECRET = 'hfOoTA56befhe6yrAduoDJRVBt4fFIuJuKcMf6C3GwKN';
 
-// Track who is currently in a room
 const activeUsers = {};
-// { username: { room: 'ROOMCODE', joinedAt: timestamp } }
+
+// Auto-expire users who haven't sent a heartbeat in 35 seconds
+setInterval(() => {
+  const now = Date.now();
+  Object.keys(activeUsers).forEach(user => {
+    if (now - activeUsers[user].lastSeen > 35000) {
+      delete activeUsers[user];
+    }
+  });
+}, 15000);
 
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -28,8 +36,7 @@ const server = http.createServer(async (req, res) => {
     const roomName = params.room || 'default-room';
     const userName = params.user || 'user-' + Math.random().toString(36).substring(2, 6);
 
-    // Check user in
-    activeUsers[userName] = { room: roomName, joinedAt: Date.now() };
+    activeUsers[userName] = { room: roomName, lastSeen: Date.now() };
 
     const token = new AccessToken(API_KEY, API_SECRET, {
       identity: userName,
@@ -46,6 +53,19 @@ const server = http.createServer(async (req, res) => {
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ token: jwt }));
+    return;
+  }
+
+  // Heartbeat — keeps user marked as online
+  if (path === '/heartbeat') {
+    const userName = params.user;
+    const roomName = params.room;
+    if (userName && activeUsers[userName]) {
+      activeUsers[userName].lastSeen = Date.now();
+      activeUsers[userName].room = roomName;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
     return;
   }
 
