@@ -43,13 +43,9 @@ function BorromeanIcon({ size = 28, color = '#ffffff' }: { size?: number, color?
   const cy3 = size * 0.62;
   return (
     <View style={{ width: size, height: size }}>
-      {[
-        [cx1, cy1],
-        [cx2, cy2],
-        [cx3, cy3],
-      ].map(([cx, cy], i) => (
+      {[[cx1, cy1], [cx2, cy2], [cx3, cy3]].map(([cx, cy], i) => (
         <View
-          key={i}
+          key={`ring-${i}`}
           style={{
             position: 'absolute',
             left: cx - r,
@@ -63,6 +59,44 @@ function BorromeanIcon({ size = 28, color = '#ffffff' }: { size?: number, color?
           }}
         />
       ))}
+    </View>
+  );
+}
+
+function ContactRow({ contact, isFriend, statuses, onJoin, onAddFriend, onDelete }: {
+  contact: Contact,
+  isFriend: boolean,
+  statuses: Record<string, ContactStatus>,
+  onJoin: (contact: Contact) => void,
+  onAddFriend: (contact: Contact) => void,
+  onDelete: (contact: Contact) => void,
+}) {
+  const status = statuses[contact.userId];
+  const isOnline = status?.online;
+  return (
+    <View style={[drawerStyles.contactRow, isOnline && drawerStyles.contactRowOnline]}>
+      <View style={drawerStyles.contactLeft}>
+        <View style={[drawerStyles.statusDot, isOnline ? drawerStyles.dotOnline : drawerStyles.dotOffline]} />
+        <View style={drawerStyles.contactAvatar}>
+          <Text style={drawerStyles.contactAvatarText}>{contact.name.charAt(0).toUpperCase()}</Text>
+        </View>
+        <Text style={drawerStyles.contactName}>{contact.name}</Text>
+      </View>
+      <View style={drawerStyles.contactRight}>
+        {isOnline && (
+          <TouchableOpacity style={drawerStyles.joinBtn} onPress={() => onJoin(contact)}>
+            <Text style={drawerStyles.joinBtnText}>Join</Text>
+          </TouchableOpacity>
+        )}
+        {!isFriend && (
+          <TouchableOpacity style={drawerStyles.starBtn} onPress={() => onAddFriend(contact)}>
+            <Text style={drawerStyles.starBtnText}>⭐</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity style={drawerStyles.deleteBtn} onPress={() => onDelete(contact)}>
+          <Text style={drawerStyles.deleteBtnText}>✕</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -259,40 +293,6 @@ export default function HomeScreen() {
     .filter(c => statuses[c.userId]?.online)
     .slice(0, 3);
 
-  const renderContact = (contact: Contact, isFriend: boolean) => {
-    const status = statuses[contact.userId];
-    const isOnline = status?.online;
-    return (
-      <View key={contact.userId} style={[drawerStyles.contactRow, isOnline && drawerStyles.contactRowOnline]}>
-        <View style={drawerStyles.contactLeft}>
-          <View style={[drawerStyles.statusDot, isOnline ? drawerStyles.dotOnline : drawerStyles.dotOffline]} />
-          <View style={drawerStyles.contactAvatar}>
-            <Text style={drawerStyles.contactAvatarText}>{contact.name.charAt(0).toUpperCase()}</Text>
-          </View>
-          <Text style={drawerStyles.contactName}>{contact.name}</Text>
-        </View>
-        <View style={drawerStyles.contactRight}>
-          {isOnline && (
-            <TouchableOpacity style={drawerStyles.joinBtn} onPress={() => { joinContact(contact); closeLeftDrawer(); }}>
-              <Text style={drawerStyles.joinBtnText}>Join</Text>
-            </TouchableOpacity>
-          )}
-          {!isFriend && (
-            <TouchableOpacity style={drawerStyles.starBtn} onPress={() => addFriend(contact)}>
-              <Text style={drawerStyles.starBtnText}>⭐</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={drawerStyles.deleteBtn}
-            onPress={() => isFriend ? deleteFriend(contact) : deleteRecent(contact)}
-          >
-            <Text style={drawerStyles.deleteBtnText}>✕</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
-
   if (loading) {
     return (
       <View style={styles.container}>
@@ -343,11 +343,11 @@ export default function HomeScreen() {
         {onlineContacts.length > 0 && (
           <View style={styles.onlineSection}>
             <Text style={styles.onlineTitle}>🟢 Online Now</Text>
-            {onlineContacts.map(contact => {
+            {onlineContacts.map((contact, index) => {
               const status = statuses[contact.userId];
               return (
                 <TouchableOpacity
-                  key={contact.userId}
+                  key={contact.userId || `online-${index}`}
                   style={styles.onlineRow}
                   onPress={() => joinContact(contact)}
                 >
@@ -391,13 +391,33 @@ export default function HomeScreen() {
           {friends.length > 0 && (
             <View style={drawerStyles.section}>
               <Text style={drawerStyles.sectionTitle}>Friends</Text>
-              {friends.map(f => renderContact(f, true))}
+              {friends.map(f => (
+            <ContactRow
+              key={f.userId}
+              contact={f}
+              isFriend={true}
+              statuses={statuses}
+              onJoin={(c) => { joinContact(c); closeLeftDrawer(); }}
+              onAddFriend={addFriend}
+              onDelete={deleteFriend}
+            />
+          ))}
             </View>
           )}
           {recents.length > 0 && (
             <View style={drawerStyles.section}>
               <Text style={drawerStyles.sectionTitle}>Recent Contacts</Text>
-              {recents.map(r => renderContact(r, false))}
+              {recents.map(r => (
+            <ContactRow
+              key={r.userId}
+              contact={r}
+              isFriend={false}
+              statuses={statuses}
+              onJoin={(c) => { joinContact(c); closeLeftDrawer(); }}
+              onAddFriend={addFriend}
+              onDelete={deleteRecent}
+            />
+          ))}
             </View>
           )}
           {friends.length === 0 && recents.length === 0 && (
