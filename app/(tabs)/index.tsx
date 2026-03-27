@@ -78,6 +78,7 @@ export default function HomeScreen() {
   const [statuses, setStatuses] = useState<Record<string, ContactStatus>>({});
   const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
   const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
+  const [animating, setAnimating] = useState(false);
 
   const leftAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const rightAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
@@ -95,33 +96,41 @@ export default function HomeScreen() {
   }, []);
 
   const openLeftDrawer = () => {
+    if (animating) return;
+    setAnimating(true);
     setLeftDrawerOpen(true);
     Animated.parallel([
       Animated.spring(leftAnim, { toValue: 0, useNativeDriver: true, bounciness: 0 }),
       Animated.timing(overlayAnim, { toValue: 0.5, duration: 300, useNativeDriver: true }),
-    ]).start();
+    ]).start(() => setAnimating(false));
   };
 
   const closeLeftDrawer = () => {
+    if (animating) return;
+    setAnimating(true);
     Animated.parallel([
-      Animated.spring(leftAnim, { toValue: -DRAWER_WIDTH, useNativeDriver: true, bounciness: 0 }),
-      Animated.timing(overlayAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
-    ]).start(() => setLeftDrawerOpen(false));
+      Animated.spring(leftAnim, { toValue: -DRAWER_WIDTH, useNativeDriver: true, bounciness: 0, speed: 20 }),
+      Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => { setLeftDrawerOpen(false); setAnimating(false); });
   };
 
   const openRightDrawer = () => {
+    if (animating) return;
+    setAnimating(true);
     setRightDrawerOpen(true);
     Animated.parallel([
       Animated.spring(rightAnim, { toValue: 0, useNativeDriver: true, bounciness: 0 }),
       Animated.timing(overlayAnim, { toValue: 0.5, duration: 300, useNativeDriver: true }),
-    ]).start();
+    ]).start(() => setAnimating(false));
   };
 
   const closeRightDrawer = () => {
+    if (animating) return;
+    setAnimating(true);
     Animated.parallel([
-      Animated.spring(rightAnim, { toValue: DRAWER_WIDTH, useNativeDriver: true, bounciness: 0 }),
-      Animated.timing(overlayAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
-    ]).start(() => setRightDrawerOpen(false));
+      Animated.spring(rightAnim, { toValue: DRAWER_WIDTH, useNativeDriver: true, bounciness: 0, speed: 20 }),
+      Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => { setRightDrawerOpen(false); setAnimating(false); });
   };
 
   const saveName = async (value: string) => {
@@ -363,12 +372,15 @@ export default function HomeScreen() {
       {/* Overlay */}
       {(leftDrawerOpen || rightDrawerOpen) && (
         <TouchableWithoutFeedback onPress={leftDrawerOpen ? closeLeftDrawer : closeRightDrawer}>
-          <Animated.View style={[styles.overlay, { opacity: overlayAnim }]} />
+          <Animated.View 
+            pointerEvents={leftDrawerOpen || rightDrawerOpen ? 'auto' : 'none'}
+            style={[styles.overlay, { opacity: overlayAnim }]} 
+          />
         </TouchableWithoutFeedback>
       )}
 
       {/* Left Drawer — Friends & Recents */}
-      <Animated.View style={[styles.leftDrawer, { transform: [{ translateX: leftAnim }], paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+      <Animated.View pointerEvents={leftDrawerOpen ? 'auto' : 'none'} style={[styles.leftDrawer, { transform: [{ translateX: leftAnim }], paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
         <View style={drawerStyles.header}>
           <Text style={drawerStyles.title}>Contacts</Text>
           <TouchableOpacity onPress={closeLeftDrawer}>
@@ -400,7 +412,7 @@ export default function HomeScreen() {
       </Animated.View>
 
       {/* Right Drawer — Settings */}
-      <Animated.View style={[styles.rightDrawer, { transform: [{ translateX: rightAnim }], paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+      <Animated.View pointerEvents={rightDrawerOpen ? 'auto' : 'none'} style={[styles.rightDrawer, { transform: [{ translateX: rightAnim }], paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
         <View style={drawerStyles.header}>
           <Text style={drawerStyles.title}>Settings</Text>
           <TouchableOpacity onPress={closeRightDrawer}>
