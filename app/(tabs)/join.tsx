@@ -19,7 +19,7 @@ export default function JoinScreen() {
 
       <TextInput
         style={styles.input}
-        placeholder="Enter code e.g. X7KP2Q"
+        placeholder="Enter code"
         placeholderTextColor="#555555"
         value={code}
         onChangeText={setCode}
@@ -64,12 +64,10 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: '#1a1a1a',
     color: '#ffffff',
-    fontSize: 28,
-    fontWeight: 'bold',
-    letterSpacing: 6,
+    fontSize: 18,
     textAlign: 'center',
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     width: '100%',
     marginBottom: 24,
     borderWidth: 2,
