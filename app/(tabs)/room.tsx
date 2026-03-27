@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getUserId } from '../../lib/utils';
 
 registerGlobals();
 
@@ -165,9 +166,13 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
     remoteParticipants.forEach(async participant => {
       const existing = await AsyncStorage.getItem('recentContacts');
       const contacts = existing ? JSON.parse(existing) : [];
-      const alreadyExists = contacts.find((c: any) => c.name === participant.identity);
+      const alreadyExists = contacts.find((c: any) => c.userId === participant.identity);
       if (!alreadyExists) {
-        contacts.unshift({ name: participant.identity, addedAt: Date.now() });
+        contacts.unshift({
+          userId: participant.identity,
+          name: participant.name || participant.identity,
+          addedAt: Date.now()
+        });
         const trimmed = contacts.slice(0, 20);
         await AsyncStorage.setItem('recentContacts', JSON.stringify(trimmed));
       }
@@ -290,7 +295,12 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
 
 export default function RoomScreen() {
   const { code, name } = useLocalSearchParams();
-  const userName = Array.isArray(name) ? name[0] : (name || 'user-' + Math.random().toString(36).substring(2, 6));
+  const displayName = Array.isArray(name) ? name[0] : (name || 'Anonymous');
+  const [userId, setUserId] = useState<string>('');
+
+  useEffect(() => {
+    getUserId().then(id => setUserId(id));
+  }, []);
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
@@ -303,15 +313,16 @@ export default function RoomScreen() {
     Notifications.requestPermissionsAsync();
     // Send heartbeat immediately and every 30 seconds
     const sendHeartbeat = () => {
-      fetch(`${TOKEN_SERVER}/heartbeat?room=${roomCode}&user=${userName}`).catch(() => {});
+      fetch(`${TOKEN_SERVER}/leave?userId=${userId}`).catch(() => {});
     };
     sendHeartbeat();
     const heartbeat = setInterval(sendHeartbeat, 30000);
 
     const controller = new AbortController();
 
+    if (!userId) return;
     fetch(
-      `${TOKEN_SERVER}?room=${roomCode}&user=${userName}`,
+      `${TOKEN_SERVER}?room=${roomCode}&userId=${userId}&name=${encodeURIComponent(displayName)}`,
       { signal: controller.signal }
     )
       .then(res => res.json())
@@ -332,11 +343,11 @@ export default function RoomScreen() {
       setConnected(false);
       AudioSession.stopAudioSession();
     };
-  }, [roomCode]);
+  }, [roomCode, userId]);
 
   const handleLeave = async () => {
     // Check out from server
-    fetch(`${TOKEN_SERVER}/leave?user=${userName}`).catch(() => {});
+    fetch(`${TOKEN_SERVER}/leave?userId=${userId}`).catch(() => {});
     setToken(null);
     setConnected(false);
     AudioSession.stopAudioSession();

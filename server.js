@@ -6,13 +6,13 @@ const API_KEY = 'API8pH7DjdozgXn';
 const API_SECRET = 'hfOoTA56befhe6yrAduoDJRVBt4fFIuJuKcMf6C3GwKN';
 
 const activeUsers = {};
+// { userId: { room, displayName, lastSeen } }
 
-// Auto-expire users who haven't sent a heartbeat in 35 seconds
 setInterval(() => {
   const now = Date.now();
-  Object.keys(activeUsers).forEach(user => {
-    if (now - activeUsers[user].lastSeen > 35000) {
-      delete activeUsers[user];
+  Object.keys(activeUsers).forEach(userId => {
+    if (now - activeUsers[userId].lastSeen > 35000) {
+      delete activeUsers[userId];
     }
   });
 }, 15000);
@@ -34,12 +34,14 @@ const server = http.createServer(async (req, res) => {
   // Get token and check in
   if (path === '/' || path === '') {
     const roomName = params.room || 'default-room';
-    const userName = params.user || 'user-' + Math.random().toString(36).substring(2, 6);
+    const userId = params.userId || 'usr_' + Math.random().toString(36).substring(2, 10);
+    const displayName = params.name || userId;
 
-    activeUsers[userName] = { room: roomName, lastSeen: Date.now() };
+    activeUsers[userId] = { room: roomName, displayName, lastSeen: Date.now() };
 
     const token = new AccessToken(API_KEY, API_SECRET, {
-      identity: userName,
+      identity: userId,
+      name: displayName,
     });
 
     token.addGrant({
@@ -52,43 +54,43 @@ const server = http.createServer(async (req, res) => {
     const jwt = await token.toJwt();
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ token: jwt }));
+    res.end(JSON.stringify({ token: jwt, userId, displayName }));
     return;
   }
 
-  // Heartbeat — keeps user marked as online
+  // Heartbeat
   if (path === '/heartbeat') {
-    const userName = params.user;
+    const userId = params.userId;
     const roomName = params.room;
-    if (userName && activeUsers[userName]) {
-      activeUsers[userName].lastSeen = Date.now();
-      activeUsers[userName].room = roomName;
+    if (userId && activeUsers[userId]) {
+      activeUsers[userId].lastSeen = Date.now();
+      activeUsers[userId].room = roomName;
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
     return;
   }
 
-  // Check out (leave room)
+  // Leave room
   if (path === '/leave') {
-    const userName = params.user;
-    if (userName && activeUsers[userName]) {
-      delete activeUsers[userName];
+    const userId = params.userId;
+    if (userId && activeUsers[userId]) {
+      delete activeUsers[userId];
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
     return;
   }
 
-  // Get status of specific users
+  // Get status by userIds
   if (path === '/status') {
-    const names = params.names ? params.names.split(',') : [];
+    const ids = params.ids ? params.ids.split(',') : [];
     const result = {};
-    names.forEach(name => {
-      if (activeUsers[name]) {
-        result[name] = { online: true, room: activeUsers[name].room };
+    ids.forEach(id => {
+      if (activeUsers[id]) {
+        result[id] = { online: true, room: activeUsers[id].room, displayName: activeUsers[id].displayName };
       } else {
-        result[name] = { online: false };
+        result[id] = { online: false };
       }
     });
     res.writeHead(200, { 'Content-Type': 'application/json' });
