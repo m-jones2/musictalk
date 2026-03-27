@@ -301,10 +301,12 @@ export default function RoomScreen() {
     setConnected(false);
     AudioSession.startAudioSession();
     Notifications.requestPermissionsAsync();
-// Send heartbeat every 30 seconds
-    const heartbeat = setInterval(() => {
+    // Send heartbeat immediately and every 30 seconds
+    const sendHeartbeat = () => {
       fetch(`${TOKEN_SERVER}/heartbeat?room=${roomCode}&user=${userName}`).catch(() => {});
-    }, 30000);
+    };
+    sendHeartbeat();
+    const heartbeat = setInterval(sendHeartbeat, 30000);
 
     const controller = new AbortController();
 
