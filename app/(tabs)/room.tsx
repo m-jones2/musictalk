@@ -11,7 +11,7 @@ import Slider from '@react-native-community/slider';
 import * as Notifications from 'expo-notifications';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getUserId } from '../../lib/utils';
 
@@ -19,6 +19,8 @@ registerGlobals();
 
 const LIVEKIT_URL = 'wss://musictalk-b7vzplg9.livekit.cloud';
 const TOKEN_SERVER = 'https://musictalk-production.up.railway.app';
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const DRAWER_WIDTH = SCREEN_WIDTH * 0.82;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -27,6 +29,36 @@ Notifications.setNotificationHandler({
     shouldSetBadge: false,
   }),
 });
+
+function BorromeanIcon({ size = 28, color = '#ffffff' }: { size?: number, color?: string }) {
+  const r = size * 0.32;
+  const cx1 = size * 0.38;
+  const cy1 = size * 0.38;
+  const cx2 = size * 0.62;
+  const cy2 = size * 0.38;
+  const cx3 = size * 0.5;
+  const cy3 = size * 0.62;
+  return (
+    <View style={{ width: size, height: size }}>
+      {[[cx1, cy1], [cx2, cy2], [cx3, cy3]].map(([cx, cy], i) => (
+        <View
+          key={i}
+          style={{
+            position: 'absolute',
+            left: cx - r,
+            top: cy - r,
+            width: r * 2,
+            height: r * 2,
+            borderRadius: r,
+            borderWidth: 2.5,
+            borderColor: color,
+            backgroundColor: 'transparent',
+          }}
+        />
+      ))}
+    </View>
+  );
+}
 
 function Avatar({ name, speaking }: { name: string, speaking: boolean }) {
   const initial = name.charAt(0).toUpperCase();
@@ -80,9 +112,9 @@ function ParticipantControl({ participant, masterVolume, speakingIds }: {
 
   return (
     <View style={participantStyles.container}>
-      <Avatar name={participant.identity} speaking={isSpeaking} />
+      <Avatar name={participant.name || participant.identity} speaking={isSpeaking} />
       <View style={participantStyles.info}>
-        <Text style={participantStyles.name}>{participant.identity}</Text>
+        <Text style={participantStyles.name}>{participant.name || participant.identity}</Text>
         <View style={participantStyles.controls}>
           <Slider
             style={participantStyles.slider}
@@ -151,7 +183,12 @@ const participantStyles = StyleSheet.create({
   },
 });
 
-function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
+function RoomContent({ onLeave, code, userId, displayName }: {
+  onLeave: () => void,
+  code: string,
+  userId: string,
+  displayName: string,
+}) {
   const insets = useSafeAreaInsets();
   const remoteParticipants = useRemoteParticipants();
   const { isMicrophoneEnabled, localParticipant } = useLocalParticipant();
@@ -160,8 +197,66 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
   const [masterVolume, setMasterVolume] = useState(0.8);
   const [allMuted, setAllMuted] = useState(false);
   const prevCountRef = useRef(0);
+  const [friends, setFriends] = useState<any[]>([]);
+  const [recents, setRecents] = useState<any[]>([]);
+  const [statuses, setStatuses] = useState<any>({});
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [animating, setAnimating] = useState(false);
+  const drawerAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  const overlayAnim = useRef(new Animated.Value(0)).current;
 
-  // Save new participants to recent contacts with timestamp
+  useEffect(() => {
+    loadContacts();
+  }, []);
+
+  const loadContacts = async () => {
+    const savedFriends = await AsyncStorage.getItem('friends');
+    const friendsList = savedFriends ? JSON.parse(savedFriends) : [];
+    setFriends(friendsList);
+
+    const savedRecents = await AsyncStorage.getItem('recentContacts');
+    const recentsList = savedRecents ? JSON.parse(savedRecents) : [];
+    setRecents(recentsList);
+
+    const allIds = [...friendsList.map((f: any) => f.userId), ...recentsList.map((r: any) => r.userId)];
+    if (allIds.length > 0) {
+      try {
+        const res = await fetch(`${TOKEN_SERVER}/status?ids=${allIds.join(',')}`);
+        const data = await res.json();
+        setStatuses(data);
+      } catch (e) {}
+    }
+  };
+
+  const openDrawer = () => {
+    if (animating) return;
+    setAnimating(true);
+    setDrawerOpen(true);
+    Animated.parallel([
+      Animated.spring(drawerAnim, { toValue: 0, useNativeDriver: true, bounciness: 0 }),
+      Animated.timing(overlayAnim, { toValue: 0.5, duration: 300, useNativeDriver: true }),
+    ]).start(() => setAnimating(false));
+  };
+
+  const closeDrawer = () => {
+    if (animating) return;
+    setAnimating(true);
+    Animated.parallel([
+      Animated.spring(drawerAnim, { toValue: -DRAWER_WIDTH, useNativeDriver: true, bounciness: 0, speed: 20 }),
+      Animated.timing(overlayAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start(() => { setDrawerOpen(false); setAnimating(false); });
+  };
+
+  const sendInvite = async (contact: any) => {
+    try {
+      await fetch(`${TOKEN_SERVER}/invite?fromUserId=${userId}&toUserId=${contact.userId}&room=${code}&fromName=${encodeURIComponent(displayName)}`);
+      Alert.alert('Invite Sent!', `${contact.name} has been invited to join your group.`);
+    } catch (e) {
+      Alert.alert('Error', 'Could not send invite.');
+    }
+  };
+
+  // Save new participants to recent contacts
   useEffect(() => {
     remoteParticipants.forEach(async participant => {
       const existing = await AsyncStorage.getItem('recentContacts');
@@ -179,6 +274,7 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
     });
   }, [remoteParticipants.length]);
 
+  // Join/leave notifications
   useEffect(() => {
     const currentCount = remoteParticipants.length;
     const prevCount = prevCountRef.current;
@@ -188,7 +284,7 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
       Notifications.scheduleNotificationAsync({
         content: {
           title: '👋 Someone joined MusicTalk',
-          body: `${newParticipant.identity} joined your room`,
+          body: `${newParticipant.name || newParticipant.identity} joined your room`,
           sound: true,
         },
         trigger: null,
@@ -197,7 +293,7 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
       Notifications.scheduleNotificationAsync({
         content: {
           title: '👋 Someone left MusicTalk',
-          body: `A participant left your room`,
+          body: 'A participant left your room',
           sound: true,
         },
         trigger: null,
@@ -225,8 +321,13 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
   return (
     <View style={styles.screen}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <Text style={styles.headerTitle}>Volume Control</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#444444' }]}>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={openDrawer} style={styles.ringsBtnLeft}>
+            <BorromeanIcon size={28} color="#ffffff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Volume Control</Text>
+        </View>
         <View style={styles.masterSliderRow}>
           <Text style={styles.sliderLabel}>🎵</Text>
           <Slider
@@ -266,7 +367,7 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
         {remoteParticipants.length === 0 && (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>🎵 Listening for voices...</Text>
-            <Text style={styles.emptySubtext}>Share your room code to invite others</Text>
+            <Text style={styles.emptySubtext}>Tap the rings icon to invite others</Text>
           </View>
         )}
         {remoteParticipants.map(participant => (
@@ -280,7 +381,7 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
       </ScrollView>
 
       {/* Footer */}
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 16, paddingHorizontal: 16 }]}>
         <TouchableOpacity style={styles.leaveButton} onPress={onLeave}>
           <Text style={styles.leaveText}>Leave Group</Text>
         </TouchableOpacity>
@@ -289,6 +390,77 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
           <Text selectable={true} style={styles.roomCodeText}>{code}</Text>
         </View>
       </View>
+
+      {/* Overlay */}
+      {drawerOpen && (
+        <TouchableWithoutFeedback onPress={closeDrawer}>
+          <Animated.View style={[styles.overlay, { opacity: overlayAnim }]} />
+        </TouchableWithoutFeedback>
+      )}
+
+      {/* Invite Drawer */}
+      <Animated.View
+        pointerEvents={drawerOpen ? 'auto' : 'none'}
+        style={[styles.leftDrawer, { transform: [{ translateX: drawerAnim }], paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}
+      >
+        <View style={inviteStyles.header}>
+          <Text style={inviteStyles.title}>Invite to Group</Text>
+          <TouchableOpacity onPress={closeDrawer}>
+            <Text style={inviteStyles.closeBtn}>✕</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView>
+          {friends.length === 0 && recents.length === 0 && (
+            <Text style={inviteStyles.emptyText}>No contacts yet!</Text>
+          )}
+          {friends.length > 0 && (
+            <View style={inviteStyles.section}>
+              <Text style={inviteStyles.sectionTitle}>Friends</Text>
+              {friends.map((contact: any) => {
+                const status = statuses[contact.userId];
+                const isOnline = status?.online;
+                return (
+                  <View key={contact.userId} style={inviteStyles.contactRow}>
+                    <View style={inviteStyles.contactLeft}>
+                      <View style={[inviteStyles.statusDot, isOnline ? inviteStyles.dotOnline : inviteStyles.dotOffline]} />
+                      <View style={inviteStyles.avatar}>
+                        <Text style={inviteStyles.avatarText}>{contact.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                      <Text style={inviteStyles.name}>{contact.name}</Text>
+                    </View>
+                    <TouchableOpacity style={inviteStyles.inviteBtn} onPress={() => sendInvite(contact)}>
+                      <Text style={inviteStyles.inviteBtnText}>Invite</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+          {recents.length > 0 && (
+            <View style={inviteStyles.section}>
+              <Text style={inviteStyles.sectionTitle}>Recent Contacts</Text>
+              {recents.map((contact: any) => {
+                const status = statuses[contact.userId];
+                const isOnline = status?.online;
+                return (
+                  <View key={contact.userId} style={inviteStyles.contactRow}>
+                    <View style={inviteStyles.contactLeft}>
+                      <View style={[inviteStyles.statusDot, isOnline ? inviteStyles.dotOnline : inviteStyles.dotOffline]} />
+                      <View style={inviteStyles.avatar}>
+                        <Text style={inviteStyles.avatarText}>{contact.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                      <Text style={inviteStyles.name}>{contact.name}</Text>
+                    </View>
+                    <TouchableOpacity style={inviteStyles.inviteBtn} onPress={() => sendInvite(contact)}>
+                      <Text style={inviteStyles.inviteBtnText}>Invite</Text>
+                    </TouchableOpacity>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+        </ScrollView>
+      </Animated.View>
     </View>
   );
 }
@@ -297,30 +469,46 @@ export default function RoomScreen() {
   const { code, name } = useLocalSearchParams();
   const displayName = Array.isArray(name) ? name[0] : (name || 'Anonymous');
   const [userId, setUserId] = useState<string>('');
-
-  useEffect(() => {
-    getUserId().then(id => setUserId(id));
-  }, []);
   const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [connected, setConnected] = useState(false);
   const roomCode = Array.isArray(code) ? code[0] : code;
 
   useEffect(() => {
+    getUserId().then(id => setUserId(id));
+  }, []);
+
+  useEffect(() => {
+    if (!userId) return;
+
     setToken(null);
     setConnected(false);
     AudioSession.startAudioSession();
-    Notifications.requestPermissionsAsync();
-    // Send heartbeat immediately and every 30 seconds
+
+    // Register push token
+    Notifications.requestPermissionsAsync().then(async ({ status }) => {
+      if (status === 'granted') {
+        try {
+          const tokenData = await Notifications.getExpoPushTokenAsync({
+            projectId: '9e5dc256-5eee-4850-acf7-44568d9cb25f',
+          });
+          const pushToken = tokenData.data;
+          fetch(`${TOKEN_SERVER}/register-push?userId=${userId}&token=${encodeURIComponent(pushToken)}`).catch(() => {});
+        } catch (e) {
+          console.log('Push token error:', e);
+        }
+      }
+    });
+
+    // Heartbeat
     const sendHeartbeat = () => {
-      fetch(`${TOKEN_SERVER}/leave?userId=${userId}`).catch(() => {});
+      fetch(`${TOKEN_SERVER}/heartbeat?room=${roomCode}&userId=${userId}`).catch(() => {});
     };
     sendHeartbeat();
     const heartbeat = setInterval(sendHeartbeat, 30000);
 
     const controller = new AbortController();
 
-    if (!userId) return;
     fetch(
       `${TOKEN_SERVER}?room=${roomCode}&userId=${userId}&name=${encodeURIComponent(displayName)}`,
       { signal: controller.signal }
@@ -346,7 +534,6 @@ export default function RoomScreen() {
   }, [roomCode, userId]);
 
   const handleLeave = async () => {
-    // Check out from server
     fetch(`${TOKEN_SERVER}/leave?userId=${userId}`).catch(() => {});
     setToken(null);
     setConnected(false);
@@ -371,7 +558,7 @@ export default function RoomScreen() {
       audio={true}
       video={false}
     >
-      <RoomContent onLeave={handleLeave} code={roomCode} />
+      <RoomContent onLeave={handleLeave} code={roomCode} userId={userId} displayName={displayName} />
     </LiveKitRoom>
   );
 }
@@ -380,7 +567,6 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#0f0f0f',
-    paddingHorizontal: 16,
   },
   connecting: {
     flex: 1,
@@ -392,11 +578,29 @@ const styles = StyleSheet.create({
     color: '#888888',
     fontSize: 16,
   },
+  header: {
+    paddingHorizontal: 8,
+    paddingVertical: 20,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    position: 'relative',
+  },
   headerTitle: {
     color: '#ffffff',
     fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 16,
+  },
+  ringsBtn: {
+    padding: 4,
+  },
+  ringsBtnLeft: {
+    padding: 4,
+    position: 'absolute',
+    left: 0,
   },
   masterSliderRow: {
     flexDirection: 'row',
@@ -440,7 +644,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   participantListContent: {
-    paddingHorizontal: 0,
+    paddingHorizontal: 16,
     paddingVertical: 16,
   },
   emptyState: {
@@ -460,8 +664,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 20,
-    paddingBottom: 36,
+    paddingHorizontal: 8,
+    paddingVertical: 20,
     borderTopWidth: 1,
     borderTopColor: '#222222',
   },
@@ -489,5 +693,121 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     letterSpacing: 4,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#000000',
+    zIndex: 998,
+    elevation: 998,
+  },
+  leftDrawer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: DRAWER_WIDTH,
+    backgroundColor: '#161616',
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 999,
+    zIndex: 999,
+  },
+});
+
+const inviteStyles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  title: {
+    color: '#ffffff',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  closeBtn: {
+    color: '#888888',
+    fontSize: 18,
+    padding: 4,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    color: '#888888',
+    fontSize: 13,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  contactLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 10,
+  },
+  dotOnline: {
+    backgroundColor: '#1DB954',
+  },
+  dotOffline: {
+    backgroundColor: '#555555',
+  },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#333333',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  avatarText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  name: {
+    color: '#ffffff',
+    fontSize: 15,
+  },
+  inviteBtn: {
+    backgroundColor: '#1DB954',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+  },
+  inviteBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  emptyText: {
+    color: '#555555',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 32,
   },
 });

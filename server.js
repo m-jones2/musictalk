@@ -4,9 +4,11 @@ const url = require('url');
 
 const API_KEY = 'API8pH7DjdozgXn';
 const API_SECRET = 'hfOoTA56befhe6yrAduoDJRVBt4fFIuJuKcMf6C3GwKN';
+const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 const activeUsers = {};
-// { userId: { room, displayName, lastSeen } }
+const pushTokens = {};
+// { userId: pushToken }
 
 setInterval(() => {
   const now = Date.now();
@@ -19,7 +21,8 @@ setInterval(() => {
 
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -55,6 +58,54 @@ const server = http.createServer(async (req, res) => {
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ token: jwt, userId, displayName }));
+    return;
+  }
+
+  // Register push token
+  if (path === '/register-push') {
+    const userId = params.userId;
+    const pushToken = params.token;
+    if (userId && pushToken) {
+      pushTokens[userId] = pushToken;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+    return;
+  }
+
+  // Send invite
+  if (path === '/invite') {
+    const fromUserId = params.fromUserId;
+    const toUserId = params.toUserId;
+    const roomCode = params.room;
+    const fromName = params.fromName;
+
+    const pushToken = pushTokens[toUserId];
+
+    if (!pushToken) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'User push token not found' }));
+      return;
+    }
+
+    try {
+      await fetch(EXPO_PUSH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: pushToken,
+          title: '🎵 MusicTalk Invite',
+          body: `${fromName} invited you to join group ${roomCode}`,
+          data: { roomCode, type: 'invite' },
+          sound: 'default',
+        }),
+      });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ success: true }));
+    } catch (e) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to send push notification' }));
+    }
     return;
   }
 
