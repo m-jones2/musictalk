@@ -6,6 +6,7 @@ import {
   useRemoteParticipants,
   useSpeakingParticipants,
 } from '@livekit/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
 import * as Notifications from 'expo-notifications';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -158,6 +159,19 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
   const [masterVolume, setMasterVolume] = useState(0.8);
   const [allMuted, setAllMuted] = useState(false);
   const prevCountRef = useRef(0);
+
+  // Save new participants to recent contacts
+  useEffect(() => {
+    remoteParticipants.forEach(async participant => {
+      const existing = await AsyncStorage.getItem('recentContacts');
+      const contacts = existing ? JSON.parse(existing) : [];
+      if (!contacts.includes(participant.identity)) {
+        contacts.unshift(participant.identity);
+        const trimmed = contacts.slice(0, 20);
+        await AsyncStorage.setItem('recentContacts', JSON.stringify(trimmed));
+      }
+    });
+  }, [remoteParticipants.length]);
 
   useEffect(() => {
     const currentCount = remoteParticipants.length;
@@ -312,7 +326,9 @@ export default function RoomScreen() {
     };
   }, [roomCode]);
 
-  const handleLeave = () => {
+  const handleLeave = async () => {
+    // Check out from server
+    fetch(`${TOKEN_SERVER}/leave?user=${userName}`).catch(() => {});
     setToken(null);
     setConnected(false);
     AudioSession.stopAudioSession();
