@@ -1,9 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 const TOKEN_SERVER = 'https://musictalk-production.up.railway.app';
+const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
+
+type Contact = {
+  name: string;
+  addedAt: number;
+};
 
 type ContactStatus = {
   online: boolean;
@@ -14,7 +20,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(true);
-  const [recentContacts, setRecentContacts] = useState<string[]>([]);
+  const [friends, setFriends] = useState<Contact[]>([]);
+  const [recents, setRecents] = useState<Contact[]>([]);
   const [statuses, setStatuses] = useState<Record<string, ContactStatus>>({});
 
   useEffect(() => {
@@ -30,13 +37,26 @@ export default function HomeScreen() {
   };
 
   const loadContacts = async () => {
-    const existing = await AsyncStorage.getItem('recentContacts');
-    const contacts = existing ? JSON.parse(existing) : [];
-    setRecentContacts(contacts);
+    const savedFriends = await AsyncStorage.getItem('friends');
+    const friendsList: Contact[] = savedFriends ? JSON.parse(savedFriends) : [];
+    setFriends(friendsList);
 
-    if (contacts.length > 0) {
+    const savedRecents = await AsyncStorage.getItem('recentContacts');
+    const recentsList: Contact[] = savedRecents ? JSON.parse(savedRecents) : [];
+    const now = Date.now();
+    const validRecents = recentsList.filter(c => now - c.addedAt < FOURTEEN_DAYS);
+    const friendNames = friendsList.map(f => f.name);
+    const filteredRecents = validRecents.filter(c => !friendNames.includes(c.name));
+
+    if (validRecents.length !== recentsList.length) {
+      await AsyncStorage.setItem('recentContacts', JSON.stringify(validRecents));
+    }
+    setRecents(filteredRecents);
+
+    const allNames = [...friendsList.map(f => f.name), ...filteredRecents.map(r => r.name)];
+    if (allNames.length > 0) {
       try {
-        const res = await fetch(`${TOKEN_SERVER}/status?names=${contacts.join(',')}`);
+        const res = await fetch(`${TOKEN_SERVER}/status?names=${allNames.join(',')}`);
         const data = await res.json();
         setStatuses(data);
       } catch (e) {
@@ -53,6 +73,75 @@ export default function HomeScreen() {
     }, [])
   );
 
+  const addFriend = async (contact: Contact) => {
+    const savedFriends = await AsyncStorage.getItem('friends');
+    const friendsList: Contact[] = savedFriends ? JSON.parse(savedFriends) : [];
+    if (!friendsList.find(f => f.name === contact.name)) {
+      friendsList.unshift({ name: contact.name, addedAt: Date.now() });
+      await AsyncStorage.setItem('friends', JSON.stringify(friendsList));
+    }
+    const updatedRecents = recents.filter(r => r.name !== contact.name);
+    await AsyncStorage.setItem('recentContacts', JSON.stringify(updatedRecents));
+    loadContacts();
+  };
+
+  const deleteFriend = (friendName: string) => {
+    Alert.alert(
+      'Remove Friend',
+      `Remove ${friendName} from your friends list? They will be moved to recent contacts.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            const updated = friends.filter(f => f.name !== friendName);
+            await AsyncStorage.setItem('friends', JSON.stringify(updated));
+            const savedRecents = await AsyncStorage.getItem('recentContacts');
+            const recentsList = savedRecents ? JSON.parse(savedRecents) : [];
+            const alreadyInRecents = recentsList.find((r: any) => r.name === friendName);
+            if (!alreadyInRecents) {
+              recentsList.unshift({ name: friendName, addedAt: Date.now() });
+              await AsyncStorage.setItem('recentContacts', JSON.stringify(recentsList));
+            }
+            loadContacts();
+          },
+        },
+      ]
+    );
+  };
+
+  const deleteRecent = async (recentName: string) => {
+    const updated = recents.filter(r => r.name !== recentName);
+    await AsyncStorage.setItem('recentContacts', JSON.stringify(updated));
+    loadContacts();
+  };
+
+  const clearRecents = () => {
+    Alert.alert(
+      'Clear Recent Contacts',
+      'This will remove all recent contacts. Friends will not be affected.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear Recents',
+          style: 'destructive',
+          onPress: async () => {
+            await AsyncStorage.setItem('recentContacts', JSON.stringify([]));
+            loadContacts();
+          },
+        },
+      ]
+    );
+  };
+
+  const joinContact = (contact: Contact) => {
+    const status = statuses[contact.name];
+    if (status?.online && status.room) {
+      router.push({ pathname: '/(tabs)/room', params: { code: status.room, name } });
+    }
+  };
+
   const createGroup = () => {
     if (name.length < 2) return;
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -64,11 +153,38 @@ export default function HomeScreen() {
     router.push({ pathname: '/(tabs)/join', params: { name } });
   };
 
-  const joinContact = (contact: string) => {
-    const status = statuses[contact];
-    if (status?.online && status.room) {
-      router.push({ pathname: '/(tabs)/room', params: { code: status.room, name } });
-    }
+  const renderContact = (contact: Contact, isFriend: boolean) => {
+    const status = statuses[contact.name];
+    const isOnline = status?.online;
+    return (
+      <View key={contact.name} style={[styles.contactRow, isOnline && styles.contactRowOnline]}>
+        <View style={styles.contactLeft}>
+          <View style={[styles.statusDot, isOnline ? styles.dotOnline : styles.dotOffline]} />
+          <View style={styles.contactAvatar}>
+            <Text style={styles.contactAvatarText}>{contact.name.charAt(0).toUpperCase()}</Text>
+          </View>
+          <Text style={styles.contactName}>{contact.name}</Text>
+        </View>
+        <View style={styles.contactRight}>
+          {isOnline && (
+            <TouchableOpacity style={styles.joinBtn} onPress={() => joinContact(contact)}>
+              <Text style={styles.joinBtnText}>Join</Text>
+            </TouchableOpacity>
+          )}
+          {!isFriend && (
+            <TouchableOpacity style={styles.starBtn} onPress={() => addFriend(contact)}>
+              <Text style={styles.starBtnText}>⭐</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={styles.deleteBtn}
+            onPress={() => isFriend ? deleteFriend(contact.name) : deleteRecent(contact.name)}
+          >
+            <Text style={styles.deleteBtnText}>✕</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
   };
 
   if (loading) {
@@ -108,38 +224,24 @@ export default function HomeScreen() {
         <Text style={styles.buttonOutlineText}>Join a Group</Text>
       </TouchableOpacity>
 
-      {recentContacts.length > 0 && (
+      {friends.length > 0 && (
+        <View style={styles.contactsSection}>
+          <Text style={styles.contactsTitle}>Friends</Text>
+          {friends.map(f => renderContact(f, true))}
+        </View>
+      )}
+
+      {recents.length > 0 && (
         <View style={styles.contactsSection}>
           <Text style={styles.contactsTitle}>Recent Contacts</Text>
-          {recentContacts.map(contact => {
-            const status = statuses[contact];
-            const isOnline = status?.online;
-            return (
-              <TouchableOpacity
-                key={contact}
-                style={[styles.contactRow, isOnline && styles.contactRowOnline]}
-                onPress={() => isOnline && joinContact(contact)}
-                disabled={!isOnline}
-              >
-                <View style={styles.contactLeft}>
-                  <View style={[styles.statusDot, isOnline ? styles.dotOnline : styles.dotOffline]} />
-                  <View style={styles.contactAvatar}>
-                    <Text style={styles.contactAvatarText}>{contact.charAt(0).toUpperCase()}</Text>
-                  </View>
-                  <Text style={styles.contactName}>{contact}</Text>
-                </View>
-                {isOnline && (
-                  <TouchableOpacity
-                    style={styles.joinBtn}
-                    onPress={() => joinContact(contact)}
-                  >
-                    <Text style={styles.joinBtnText}>Join</Text>
-                  </TouchableOpacity>
-                )}
-              </TouchableOpacity>
-            );
-          })}
+          {recents.map(r => renderContact(r, false))}
         </View>
+      )}
+
+      {recents.length > 0 && (
+        <TouchableOpacity style={styles.clearAllBtn} onPress={clearRecents}>
+          <Text style={styles.clearAllText}>Clear Recent Contacts</Text>
+        </TouchableOpacity>
       )}
     </ScrollView>
   );
@@ -217,6 +319,7 @@ const styles = StyleSheet.create({
   },
   contactsSection: {
     width: '100%',
+    marginBottom: 16,
   },
   contactsTitle: {
     color: '#888888',
@@ -243,6 +346,7 @@ const styles = StyleSheet.create({
   contactLeft: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   statusDot: {
     width: 8,
@@ -274,15 +378,57 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
   },
+  contactRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   joinBtn: {
     backgroundColor: '#1DB954',
     paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     borderRadius: 16,
   },
   joinBtnText: {
     color: '#ffffff',
     fontSize: 14,
     fontWeight: 'bold',
+  },
+  starBtn: {
+    backgroundColor: '#1a1a1a',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#444444',
+  },
+  starBtnText: {
+    fontSize: 14,
+  },
+  deleteBtn: {
+    backgroundColor: '#1a1a1a',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#444444',
+  },
+  deleteBtnText: {
+    color: '#888888',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  clearAllBtn: {
+    marginTop: 8,
+    paddingVertical: 10,
+  },
+  clearAllText: {
+    color: '#555555',
+    fontSize: 14,
+    textDecorationLine: 'underline',
   },
 });

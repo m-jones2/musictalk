@@ -160,13 +160,14 @@ function RoomContent({ onLeave, code }: { onLeave: () => void, code: string }) {
   const [allMuted, setAllMuted] = useState(false);
   const prevCountRef = useRef(0);
 
-  // Save new participants to recent contacts
+  // Save new participants to recent contacts with timestamp
   useEffect(() => {
     remoteParticipants.forEach(async participant => {
       const existing = await AsyncStorage.getItem('recentContacts');
       const contacts = existing ? JSON.parse(existing) : [];
-      if (!contacts.includes(participant.identity)) {
-        contacts.unshift(participant.identity);
+      const alreadyExists = contacts.find((c: any) => c.name === participant.identity);
+      if (!alreadyExists) {
+        contacts.unshift({ name: participant.identity, addedAt: Date.now() });
         const trimmed = contacts.slice(0, 20);
         await AsyncStorage.setItem('recentContacts', JSON.stringify(trimmed));
       }
