@@ -5,7 +5,7 @@ module.exports = {
     version: "1.0.0",
     android: {
       package: "com.mjones4.musictalk",
-      googleServicesFile: "./google-services.json",
+      googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
     },
     extra: {
       eas: {
