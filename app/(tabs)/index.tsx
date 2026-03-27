@@ -1,12 +1,28 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Alert,
+  Animated,
+  Dimensions,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getUserId } from '../../lib/utils';
 
 const TOKEN_SERVER = 'https://musictalk-production.up.railway.app';
 const FOURTEEN_DAYS = 14 * 24 * 60 * 60 * 1000;
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const DRAWER_WIDTH = SCREEN_WIDTH * 0.82;
 
 type Contact = {
+  userId: string;
   name: string;
   addedAt: number;
 };
@@ -14,22 +30,99 @@ type Contact = {
 type ContactStatus = {
   online: boolean;
   room?: string;
+  displayName?: string;
 };
+
+function BorromeanIcon({ size = 28, color = '#ffffff' }: { size?: number, color?: string }) {
+  const r = size * 0.32;
+  const cx1 = size * 0.38;
+  const cy1 = size * 0.38;
+  const cx2 = size * 0.62;
+  const cy2 = size * 0.38;
+  const cx3 = size * 0.5;
+  const cy3 = size * 0.62;
+  return (
+    <View style={{ width: size, height: size }}>
+      {[
+        [cx1, cy1],
+        [cx2, cy2],
+        [cx3, cy3],
+      ].map(([cx, cy], i) => (
+        <View
+          key={i}
+          style={{
+            position: 'absolute',
+            left: cx - r,
+            top: cy - r,
+            width: r * 2,
+            height: r * 2,
+            borderRadius: r,
+            borderWidth: 2.5,
+            borderColor: color,
+            backgroundColor: 'transparent',
+          }}
+        />
+      ))}
+    </View>
+  );
+}
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [name, setName] = useState('');
+  const [userId, setUserId] = useState('');
   const [loading, setLoading] = useState(true);
   const [friends, setFriends] = useState<Contact[]>([]);
   const [recents, setRecents] = useState<Contact[]>([]);
   const [statuses, setStatuses] = useState<Record<string, ContactStatus>>({});
+  const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
+  const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
+
+  const leftAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
+  const rightAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
+  const overlayAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    AsyncStorage.getItem('username').then(savedName => {
+    Promise.all([
+      AsyncStorage.getItem('username'),
+      getUserId(),
+    ]).then(([savedName, id]) => {
       if (savedName) setName(savedName);
+      setUserId(id);
       setLoading(false);
     });
   }, []);
+
+  const openLeftDrawer = () => {
+    setLeftDrawerOpen(true);
+    Animated.parallel([
+      Animated.spring(leftAnim, { toValue: 0, useNativeDriver: true, bounciness: 0 }),
+      Animated.timing(overlayAnim, { toValue: 0.5, duration: 300, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const closeLeftDrawer = () => {
+    Animated.parallel([
+      Animated.spring(leftAnim, { toValue: -DRAWER_WIDTH, useNativeDriver: true, bounciness: 0 }),
+      Animated.timing(overlayAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start(() => setLeftDrawerOpen(false));
+  };
+
+  const openRightDrawer = () => {
+    setRightDrawerOpen(true);
+    Animated.parallel([
+      Animated.spring(rightAnim, { toValue: 0, useNativeDriver: true, bounciness: 0 }),
+      Animated.timing(overlayAnim, { toValue: 0.5, duration: 300, useNativeDriver: true }),
+    ]).start();
+  };
+
+  const closeRightDrawer = () => {
+    Animated.parallel([
+      Animated.spring(rightAnim, { toValue: DRAWER_WIDTH, useNativeDriver: true, bounciness: 0 }),
+      Animated.timing(overlayAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start(() => setRightDrawerOpen(false));
+  };
 
   const saveName = async (value: string) => {
     setName(value);
@@ -45,18 +138,18 @@ export default function HomeScreen() {
     const recentsList: Contact[] = savedRecents ? JSON.parse(savedRecents) : [];
     const now = Date.now();
     const validRecents = recentsList.filter(c => now - c.addedAt < FOURTEEN_DAYS);
-    const friendNames = friendsList.map(f => f.name);
-    const filteredRecents = validRecents.filter(c => !friendNames.includes(c.name));
+    const friendIds = friendsList.map(f => f.userId);
+    const filteredRecents = validRecents.filter(c => !friendIds.includes(c.userId));
 
     if (validRecents.length !== recentsList.length) {
       await AsyncStorage.setItem('recentContacts', JSON.stringify(validRecents));
     }
     setRecents(filteredRecents);
 
-    const allNames = [...friendsList.map(f => f.name), ...filteredRecents.map(r => r.name)];
-    if (allNames.length > 0) {
+    const allIds = [...friendsList.map(f => f.userId), ...filteredRecents.map(r => r.userId)];
+    if (allIds.length > 0) {
       try {
-        const res = await fetch(`${TOKEN_SERVER}/status?names=${allNames.join(',')}`);
+        const res = await fetch(`${TOKEN_SERVER}/status?ids=${allIds.join(',')}`);
         const data = await res.json();
         setStatuses(data);
       } catch (e) {
@@ -76,32 +169,32 @@ export default function HomeScreen() {
   const addFriend = async (contact: Contact) => {
     const savedFriends = await AsyncStorage.getItem('friends');
     const friendsList: Contact[] = savedFriends ? JSON.parse(savedFriends) : [];
-    if (!friendsList.find(f => f.name === contact.name)) {
-      friendsList.unshift({ name: contact.name, addedAt: Date.now() });
+    if (!friendsList.find(f => f.userId === contact.userId)) {
+      friendsList.unshift({ userId: contact.userId, name: contact.name, addedAt: Date.now() });
       await AsyncStorage.setItem('friends', JSON.stringify(friendsList));
     }
-    const updatedRecents = recents.filter(r => r.name !== contact.name);
+    const updatedRecents = recents.filter(r => r.userId !== contact.userId);
     await AsyncStorage.setItem('recentContacts', JSON.stringify(updatedRecents));
     loadContacts();
   };
 
-  const deleteFriend = (friendName: string) => {
+  const deleteFriend = (contact: Contact) => {
     Alert.alert(
       'Remove Friend',
-      `Remove ${friendName} from your friends list? They will be moved to recent contacts.`,
+      `Remove ${contact.name} from your friends list? They will be moved to recent contacts.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Remove',
           style: 'destructive',
           onPress: async () => {
-            const updated = friends.filter(f => f.name !== friendName);
+            const updated = friends.filter(f => f.userId !== contact.userId);
             await AsyncStorage.setItem('friends', JSON.stringify(updated));
             const savedRecents = await AsyncStorage.getItem('recentContacts');
             const recentsList = savedRecents ? JSON.parse(savedRecents) : [];
-            const alreadyInRecents = recentsList.find((r: any) => r.name === friendName);
+            const alreadyInRecents = recentsList.find((r: any) => r.userId === contact.userId);
             if (!alreadyInRecents) {
-              recentsList.unshift({ name: friendName, addedAt: Date.now() });
+              recentsList.unshift({ userId: contact.userId, name: contact.name, addedAt: Date.now() });
               await AsyncStorage.setItem('recentContacts', JSON.stringify(recentsList));
             }
             loadContacts();
@@ -111,8 +204,8 @@ export default function HomeScreen() {
     );
   };
 
-  const deleteRecent = async (recentName: string) => {
-    const updated = recents.filter(r => r.name !== recentName);
+  const deleteRecent = async (contact: Contact) => {
+    const updated = recents.filter(r => r.userId !== contact.userId);
     await AsyncStorage.setItem('recentContacts', JSON.stringify(updated));
     loadContacts();
   };
@@ -136,7 +229,7 @@ export default function HomeScreen() {
   };
 
   const joinContact = (contact: Contact) => {
-    const status = statuses[contact.name];
+    const status = statuses[contact.userId];
     if (status?.online && status.room) {
       router.push({ pathname: '/(tabs)/room', params: { code: status.room, name } });
     }
@@ -153,34 +246,38 @@ export default function HomeScreen() {
     router.push({ pathname: '/(tabs)/join', params: { name } });
   };
 
+  const onlineContacts = [...friends, ...recents]
+    .filter(c => statuses[c.userId]?.online)
+    .slice(0, 3);
+
   const renderContact = (contact: Contact, isFriend: boolean) => {
-    const status = statuses[contact.name];
+    const status = statuses[contact.userId];
     const isOnline = status?.online;
     return (
-      <View key={contact.name} style={[styles.contactRow, isOnline && styles.contactRowOnline]}>
-        <View style={styles.contactLeft}>
-          <View style={[styles.statusDot, isOnline ? styles.dotOnline : styles.dotOffline]} />
-          <View style={styles.contactAvatar}>
-            <Text style={styles.contactAvatarText}>{contact.name.charAt(0).toUpperCase()}</Text>
+      <View key={contact.userId} style={[drawerStyles.contactRow, isOnline && drawerStyles.contactRowOnline]}>
+        <View style={drawerStyles.contactLeft}>
+          <View style={[drawerStyles.statusDot, isOnline ? drawerStyles.dotOnline : drawerStyles.dotOffline]} />
+          <View style={drawerStyles.contactAvatar}>
+            <Text style={drawerStyles.contactAvatarText}>{contact.name.charAt(0).toUpperCase()}</Text>
           </View>
-          <Text style={styles.contactName}>{contact.name}</Text>
+          <Text style={drawerStyles.contactName}>{contact.name}</Text>
         </View>
-        <View style={styles.contactRight}>
+        <View style={drawerStyles.contactRight}>
           {isOnline && (
-            <TouchableOpacity style={styles.joinBtn} onPress={() => joinContact(contact)}>
-              <Text style={styles.joinBtnText}>Join</Text>
+            <TouchableOpacity style={drawerStyles.joinBtn} onPress={() => { joinContact(contact); closeLeftDrawer(); }}>
+              <Text style={drawerStyles.joinBtnText}>Join</Text>
             </TouchableOpacity>
           )}
           {!isFriend && (
-            <TouchableOpacity style={styles.starBtn} onPress={() => addFriend(contact)}>
-              <Text style={styles.starBtnText}>⭐</Text>
+            <TouchableOpacity style={drawerStyles.starBtn} onPress={() => addFriend(contact)}>
+              <Text style={drawerStyles.starBtnText}>⭐</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity
-            style={styles.deleteBtn}
-            onPress={() => isFriend ? deleteFriend(contact.name) : deleteRecent(contact.name)}
+            style={drawerStyles.deleteBtn}
+            onPress={() => isFriend ? deleteFriend(contact) : deleteRecent(contact)}
           >
-            <Text style={styles.deleteBtnText}>✕</Text>
+            <Text style={drawerStyles.deleteBtnText}>✕</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -196,96 +293,185 @@ export default function HomeScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.logo}>🎵</Text>
-      <Text style={styles.title}>MusicTalk</Text>
-      <Text style={styles.subtitle}>Talk without missing a beat</Text>
-
-      <TextInput
-        style={styles.input}
-        placeholder="Enter your name"
-        placeholderTextColor="#555555"
-        value={name}
-        onChangeText={saveName}
-        maxLength={20}
-      />
-
-      <TouchableOpacity
-        style={[styles.button, name.length < 2 && styles.buttonDisabled]}
-        onPress={createGroup}
-      >
-        <Text style={styles.buttonText}>Create a Group</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.buttonOutline, name.length < 2 && styles.buttonOutlineDisabled]}
-        onPress={joinGroup}
-      >
-        <Text style={styles.buttonOutlineText}>Join a Group</Text>
-      </TouchableOpacity>
-
-      {friends.length > 0 && (
-        <View style={styles.contactsSection}>
-          <Text style={styles.contactsTitle}>Friends</Text>
-          {friends.map(f => renderContact(f, true))}
+    <View style={styles.root}>
+      {/* Main Screen */}
+      <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+        {/* Top Bar */}
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={openLeftDrawer} style={styles.iconBtn}>
+            <BorromeanIcon size={32} color="#ffffff" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={openRightDrawer} style={styles.iconBtn}>
+            <Text style={styles.gearIcon}>⚙️</Text>
+          </TouchableOpacity>
         </View>
-      )}
 
-      {recents.length > 0 && (
-        <View style={styles.contactsSection}>
-          <Text style={styles.contactsTitle}>Recent Contacts</Text>
-          {recents.map(r => renderContact(r, false))}
+        {/* Welcome */}
+        <View style={styles.welcomeSection}>
+          <Text style={styles.logo}>🎵</Text>
+          <Text style={styles.title}>MusicTalk</Text>
+          <Text style={styles.welcome}>Welcome{name ? `, ${name}` : ''}!</Text>
         </View>
+
+        {/* Buttons */}
+        <View style={styles.buttonSection}>
+          <TouchableOpacity
+            style={[styles.button, name.length < 2 && styles.buttonDisabled]}
+            onPress={createGroup}
+          >
+            <Text style={styles.buttonText}>Create a Group</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.buttonOutline, name.length < 2 && styles.buttonOutlineDisabled]}
+            onPress={joinGroup}
+          >
+            <Text style={styles.buttonOutlineText}>Join a Group</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Online Now */}
+        {onlineContacts.length > 0 && (
+          <View style={styles.onlineSection}>
+            <Text style={styles.onlineTitle}>🟢 Online Now</Text>
+            {onlineContacts.map(contact => {
+              const status = statuses[contact.userId];
+              return (
+                <TouchableOpacity
+                  key={contact.userId}
+                  style={styles.onlineRow}
+                  onPress={() => joinContact(contact)}
+                >
+                  <View style={styles.onlineAvatar}>
+                    <Text style={styles.onlineAvatarText}>{contact.name.charAt(0).toUpperCase()}</Text>
+                  </View>
+                  <Text style={styles.onlineName}>{contact.name}</Text>
+                  <TouchableOpacity style={styles.joinBtn} onPress={() => joinContact(contact)}>
+                    <Text style={styles.joinBtnText}>Join</Text>
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+
+        {name.length < 2 && (
+          <Text style={styles.nameHint}>Set your name in ⚙️ Settings to get started</Text>
+        )}
+      </View>
+
+      {/* Overlay */}
+      {(leftDrawerOpen || rightDrawerOpen) && (
+        <TouchableWithoutFeedback onPress={leftDrawerOpen ? closeLeftDrawer : closeRightDrawer}>
+          <Animated.View style={[styles.overlay, { opacity: overlayAnim }]} />
+        </TouchableWithoutFeedback>
       )}
 
-      {recents.length > 0 && (
-        <TouchableOpacity style={styles.clearAllBtn} onPress={clearRecents}>
-          <Text style={styles.clearAllText}>Clear Recent Contacts</Text>
-        </TouchableOpacity>
-      )}
-    </ScrollView>
+      {/* Left Drawer — Friends & Recents */}
+      <Animated.View style={[styles.leftDrawer, { transform: [{ translateX: leftAnim }], paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+        <View style={drawerStyles.header}>
+          <Text style={drawerStyles.title}>Contacts</Text>
+          <TouchableOpacity onPress={closeLeftDrawer}>
+            <Text style={drawerStyles.closeBtn}>✕</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView style={drawerStyles.scroll}>
+          {friends.length > 0 && (
+            <View style={drawerStyles.section}>
+              <Text style={drawerStyles.sectionTitle}>Friends</Text>
+              {friends.map(f => renderContact(f, true))}
+            </View>
+          )}
+          {recents.length > 0 && (
+            <View style={drawerStyles.section}>
+              <Text style={drawerStyles.sectionTitle}>Recent Contacts</Text>
+              {recents.map(r => renderContact(r, false))}
+            </View>
+          )}
+          {friends.length === 0 && recents.length === 0 && (
+            <Text style={drawerStyles.emptyText}>No contacts yet. Join a group to meet people!</Text>
+          )}
+          {recents.length > 0 && (
+            <TouchableOpacity style={drawerStyles.clearBtn} onPress={clearRecents}>
+              <Text style={drawerStyles.clearBtnText}>Clear Recent Contacts</Text>
+            </TouchableOpacity>
+          )}
+        </ScrollView>
+      </Animated.View>
+
+      {/* Right Drawer — Settings */}
+      <Animated.View style={[styles.rightDrawer, { transform: [{ translateX: rightAnim }], paddingTop: insets.top + 16, paddingBottom: insets.bottom + 16 }]}>
+        <View style={drawerStyles.header}>
+          <Text style={drawerStyles.title}>Settings</Text>
+          <TouchableOpacity onPress={closeRightDrawer}>
+            <Text style={drawerStyles.closeBtn}>✕</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView style={drawerStyles.scroll}>
+          <View style={drawerStyles.section}>
+            <Text style={drawerStyles.sectionTitle}>Your Name</Text>
+            <TextInput
+              style={drawerStyles.input}
+              placeholder="Enter your name"
+              placeholderTextColor="#555555"
+              value={name}
+              onChangeText={saveName}
+              maxLength={20}
+            />
+            <Text style={drawerStyles.hint}>This is how others will see you in groups</Text>
+          </View>
+        </ScrollView>
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
+  root: {
+    flex: 1,
     backgroundColor: '#0f0f0f',
+  },
+  container: {
+    flex: 1,
+    paddingHorizontal: 24,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
+    marginBottom: 24,
+  },
+  iconBtn: {
+    padding: 8,
+  },
+  gearIcon: {
+    fontSize: 26,
+  },
+  welcomeSection: {
+    alignItems: 'center',
+    marginBottom: 40,
   },
   logo: {
-    fontSize: 64,
-    marginBottom: 16,
+    fontSize: 56,
+    marginBottom: 8,
   },
   title: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#ffffff',
     marginBottom: 8,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#888888',
-    marginBottom: 32,
-  },
-  input: {
-    backgroundColor: '#1a1a1a',
-    color: '#ffffff',
+  welcome: {
     fontSize: 18,
-    textAlign: 'center',
-    borderRadius: 16,
-    padding: 16,
+    color: '#888888',
+  },
+  buttonSection: {
     width: '100%',
-    marginBottom: 24,
-    borderWidth: 2,
-    borderColor: '#333333',
+    marginBottom: 40,
   },
   button: {
     backgroundColor: '#1DB954',
     paddingVertical: 16,
-    paddingHorizontal: 48,
     borderRadius: 32,
     marginBottom: 16,
     width: '100%',
@@ -303,11 +489,9 @@ const styles = StyleSheet.create({
     borderColor: '#1DB954',
     borderWidth: 2,
     paddingVertical: 16,
-    paddingHorizontal: 48,
     borderRadius: 32,
     width: '100%',
     alignItems: 'center',
-    marginBottom: 32,
   },
   buttonOutlineDisabled: {
     borderColor: '#1a472a',
@@ -317,17 +501,129 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  contactsSection: {
+  onlineSection: {
     width: '100%',
-    marginBottom: 16,
   },
-  contactsTitle: {
-    color: '#888888',
-    fontSize: 14,
+  onlineTitle: {
+    color: '#ffffff',
+    fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 12,
+  },
+  onlineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1a1a',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#1DB954',
+  },
+  onlineAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#333333',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  onlineAvatarText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  onlineName: {
+    color: '#ffffff',
+    fontSize: 16,
+    flex: 1,
+  },
+  joinBtn: {
+    backgroundColor: '#1DB954',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+  },
+  joinBtnText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  nameHint: {
+    color: '#555555',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 24,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#000000',
+  },
+  leftDrawer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    width: DRAWER_WIDTH,
+    backgroundColor: '#161616',
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 16,
+  },
+  rightDrawer: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: DRAWER_WIDTH,
+    backgroundColor: '#161616',
+    paddingHorizontal: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: -4, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 16,
+  },
+});
+
+const drawerStyles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  title: {
+    color: '#ffffff',
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  closeBtn: {
+    color: '#888888',
+    fontSize: 18,
+    padding: 4,
+  },
+  scroll: {
+    flex: 1,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    color: '#888888',
+    fontSize: 13,
+    fontWeight: 'bold',
     textTransform: 'uppercase',
     letterSpacing: 1,
+    marginBottom: 12,
   },
   contactRow: {
     flexDirection: 'row',
@@ -376,7 +672,7 @@ const styles = StyleSheet.create({
   },
   contactName: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 15,
   },
   contactRight: {
     flexDirection: 'row',
@@ -422,13 +718,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
-  clearAllBtn: {
+  clearBtn: {
     marginTop: 8,
     paddingVertical: 10,
+    alignItems: 'center',
   },
-  clearAllText: {
+  clearBtnText: {
     color: '#555555',
     fontSize: 14,
     textDecorationLine: 'underline',
+  },
+  input: {
+    backgroundColor: '#222222',
+    color: '#ffffff',
+    fontSize: 18,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#333333',
+    marginBottom: 8,
+  },
+  hint: {
+    color: '#555555',
+    fontSize: 13,
+  },
+  emptyText: {
+    color: '#555555',
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 32,
   },
 });
