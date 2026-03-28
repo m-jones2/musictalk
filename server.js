@@ -8,7 +8,7 @@ const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 const activeUsers = {};
 const pushTokens = {};
-// { userId: pushToken }
+const lockedRooms = new Set();
 
 setInterval(() => {
   const now = Date.now();
@@ -40,6 +40,13 @@ const server = http.createServer(async (req, res) => {
     const userId = params.userId || 'usr_' + Math.random().toString(36).substring(2, 10);
     const displayName = params.name || userId;
 
+    // Check if room is locked
+    if (lockedRooms.has(roomName) && !params.invited) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Room is locked', locked: true }));
+      return;
+    }
+
     activeUsers[userId] = { room: roomName, displayName, lastSeen: Date.now() };
 
     const token = new AccessToken(API_KEY, API_SECRET, {
@@ -58,6 +65,30 @@ const server = http.createServer(async (req, res) => {
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ token: jwt, userId, displayName }));
+    return;
+  }
+
+  // Lock/unlock room
+  if (path === '/lock') {
+    const roomName = params.room;
+    const action = params.action; // 'lock' or 'unlock'
+    if (roomName) {
+      if (action === 'lock') {
+        lockedRooms.add(roomName);
+      } else {
+        lockedRooms.delete(roomName);
+      }
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true, locked: lockedRooms.has(roomName) }));
+    return;
+  }
+
+  // Check if room is locked
+  if (path === '/room-status') {
+    const roomName = params.room;
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ locked: lockedRooms.has(roomName) }));
     return;
   }
 
@@ -139,7 +170,13 @@ const server = http.createServer(async (req, res) => {
     const result = {};
     ids.forEach(id => {
       if (activeUsers[id]) {
-        result[id] = { online: true, room: activeUsers[id].room, displayName: activeUsers[id].displayName };
+        const room = activeUsers[id].room;
+        result[id] = {
+          online: true,
+          room,
+          displayName: activeUsers[id].displayName,
+          locked: lockedRooms.has(room),
+        };
       } else {
         result[id] = { online: false };
       }
