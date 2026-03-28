@@ -378,24 +378,24 @@ export default function HomeScreen() {
             <Text style={styles.onlineTitle}>🟢 Online Now</Text>
             {onlineContacts.map((contact, index) => {
               const status = statuses[contact.userId];
+              const isLocked = status?.locked;
               return (
-                <TouchableOpacity
+                <View
                   key={contact.userId || `online-${index}`}
                   style={styles.onlineRow}
-                  onPress={() => joinContact(contact)}
                 >
-                  <View style={styles.onlineAvatar}>
+                  <View style={[styles.onlineAvatar, { borderWidth: 2, borderColor: '#1DB954' }]}>
                     <Text style={styles.onlineAvatarText}>{contact.name.charAt(0).toUpperCase()}</Text>
                   </View>
                   <Text style={styles.onlineName}>{contact.name}</Text>
-                  {statuses[contact.userId]?.locked ? (
-                    <Text style={styles.lockIcon}>🔒</Text>
+                  {isLocked ? (
+                    <Text style={{ fontSize: 18 }}>🔒</Text>
                   ) : (
                     <TouchableOpacity style={styles.joinBtn} onPress={() => joinContact(contact)}>
                       <Text style={styles.joinBtnText}>Join</Text>
                     </TouchableOpacity>
                   )}
-                </TouchableOpacity>
+                </View>
               );
             })}
           </View>
