@@ -202,6 +202,7 @@ function RoomContent({ onLeave, code, userId, displayName }: {
   const [statuses, setStatuses] = useState<any>({});
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [animating, setAnimating] = useState(false);
+  const [isLocked, setIsLocked] = useState(false);
   const drawerAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
@@ -255,6 +256,16 @@ function RoomContent({ onLeave, code, userId, displayName }: {
       Alert.alert('Error', 'Could not send invite.');
     }
   };
+
+  const toggleLock = async () => {
+      const action = isLocked ? 'unlock' : 'lock';
+      try {
+        await fetch(`${TOKEN_SERVER}/lock?room=${code}&action=${action}`);
+        setIsLocked(!isLocked);
+      } catch (e) {
+        Alert.alert('Error', 'Could not update room lock.');
+      }
+    };
 
   // Save new participants to recent contacts
   useEffect(() => {
@@ -327,6 +338,9 @@ function RoomContent({ onLeave, code, userId, displayName }: {
             <BorromeanIcon size={28} color="#ffffff" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Volume Control</Text>
+          <TouchableOpacity onPress={toggleLock} style={styles.lockBtn}>
+            <Text style={styles.lockIcon}>{isLocked ? '🔒' : '🔓'}</Text>
+          </TouchableOpacity>
         </View>
         <View style={styles.masterSliderRow}>
           <Text style={styles.sliderLabel}>🎵</Text>
@@ -693,6 +707,14 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     letterSpacing: 4,
+  },
+  lockBtn: {
+    padding: 4,
+    position: 'absolute',
+    right: 0,
+  },
+  lockIcon: {
+    fontSize: 22,
   },
   overlay: {
     position: 'absolute',

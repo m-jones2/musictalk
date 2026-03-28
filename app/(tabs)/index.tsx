@@ -31,6 +31,7 @@ type ContactStatus = {
   online: boolean;
   room?: string;
   displayName?: string;
+  locked?: boolean;
 };
 
 function BorromeanIcon({ size = 28, color = '#ffffff' }: { size?: number, color?: string }) {
@@ -84,9 +85,13 @@ function ContactRow({ contact, isFriend, statuses, onJoin, onAddFriend, onDelete
       </View>
       <View style={drawerStyles.contactRight}>
         {isOnline && (
-          <TouchableOpacity style={drawerStyles.joinBtn} onPress={() => onJoin(contact)}>
-            <Text style={drawerStyles.joinBtnText}>Join</Text>
-          </TouchableOpacity>
+          status?.locked ? (
+            <Text style={drawerStyles.lockIcon}>🔒</Text>
+          ) : (
+            <TouchableOpacity style={drawerStyles.joinBtn} onPress={() => onJoin(contact)}>
+              <Text style={drawerStyles.joinBtnText}>Join</Text>
+            </TouchableOpacity>
+          )
         )}
         {!isFriend && (
           <TouchableOpacity style={drawerStyles.starBtn} onPress={() => onAddFriend(contact)}>
@@ -355,9 +360,13 @@ export default function HomeScreen() {
                     <Text style={styles.onlineAvatarText}>{contact.name.charAt(0).toUpperCase()}</Text>
                   </View>
                   <Text style={styles.onlineName}>{contact.name}</Text>
-                  <TouchableOpacity style={styles.joinBtn} onPress={() => joinContact(contact)}>
-                    <Text style={styles.joinBtnText}>Join</Text>
-                  </TouchableOpacity>
+                  {statuses[contact.userId]?.locked ? (
+                    <Text style={styles.lockIcon}>🔒</Text>
+                  ) : (
+                    <TouchableOpacity style={styles.joinBtn} onPress={() => joinContact(contact)}>
+                      <Text style={styles.joinBtnText}>Join</Text>
+                    </TouchableOpacity>
+                  )}
                 </TouchableOpacity>
               );
             })}
@@ -582,6 +591,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
+  lockIcon: {
+    fontSize: 18,
+  },
   nameHint: {
     color: '#555555',
     fontSize: 14,
@@ -759,6 +771,9 @@ const drawerStyles = StyleSheet.create({
     color: '#555555',
     fontSize: 14,
     textDecorationLine: 'underline',
+  },
+  lockIcon: {
+    fontSize: 18,
   },
   input: {
     backgroundColor: '#222222',
