@@ -125,6 +125,7 @@ function ParticipantControl({ participant, masterVolume, speakingIds }: {
             minimumTrackTintColor="#1DB954"
             maximumTrackTintColor="#333333"
             thumbTintColor="#1DB954"
+            tapToSeek={true}
           />
           <TouchableOpacity
             style={[participantStyles.muteBtn, muted && participantStyles.mutedBtn]}
@@ -143,7 +144,7 @@ function ParticipantControl({ participant, masterVolume, speakingIds }: {
 const participantStyles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     backgroundColor: '#1a1a1a',
     borderRadius: 12,
     padding: 12,
@@ -152,12 +153,13 @@ const participantStyles = StyleSheet.create({
   },
   info: {
     flex: 1,
+    justifyContent: 'center',
   },
   name: {
     color: '#ffffff',
     fontSize: 15,
     fontWeight: 'bold',
-    marginBottom: 6,
+    marginBottom: 0,
   },
   controls: {
     flexDirection: 'row',
@@ -165,6 +167,8 @@ const participantStyles = StyleSheet.create({
   },
   slider: {
     flex: 1,
+    height: 32,
+    marginTop: -4,
   },
   muteBtn: {
     backgroundColor: '#333333',
@@ -174,6 +178,8 @@ const participantStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
+    marginTop: -4,
+    alignSelf: 'center',
   },
   mutedBtn: {
     backgroundColor: '#ff4444',
@@ -332,7 +338,7 @@ function RoomContent({ onLeave, code, userId, displayName }: {
   return (
     <View style={styles.screen}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 16, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#444444' }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 16, paddingHorizontal: 16 }]}>
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={openDrawer} style={styles.ringsBtnLeft}>
             <BorromeanIcon size={28} color="#ffffff" />
@@ -353,6 +359,7 @@ function RoomContent({ onLeave, code, userId, displayName }: {
             minimumTrackTintColor="#1DB954"
             maximumTrackTintColor="#333333"
             thumbTintColor="#1DB954"
+            tapToSeek={true}
           />
           <Text style={styles.sliderLabel}>🎤</Text>
         </View>
@@ -624,6 +631,7 @@ const styles = StyleSheet.create({
   masterSlider: {
     flex: 1,
     marginHorizontal: 8,
+    height: 40,
   },
   sliderLabel: {
     fontSize: 18,
@@ -632,7 +640,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     paddingBottom: 20,
-    marginBottom: 4,
+    marginBottom: 0,
     borderBottomWidth: 1,
     borderBottomColor: '#444444',
   },
@@ -659,7 +667,8 @@ const styles = StyleSheet.create({
   },
   participantListContent: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 2,
+    paddingBottom: 16,
   },
   emptyState: {
     alignItems: 'center',
