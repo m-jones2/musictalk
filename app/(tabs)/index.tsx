@@ -74,18 +74,54 @@ function ContactRow({ contact, isFriend, statuses, onJoin, onAddFriend, onDelete
 }) {
   const status = statuses[contact.userId];
   const isOnline = status?.online;
+  const isLocked = status?.locked;
+
+  const handleAvatarPress = () => {
+    if (isFriend) {
+      Alert.alert(
+        contact.name,
+        'What would you like to do?',
+        [
+          {
+            text: 'Remove Friend',
+            style: 'destructive',
+            onPress: () => onDelete(contact),
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+    } else {
+      Alert.alert(
+        contact.name,
+        'What would you like to do?',
+        [
+          {
+            text: 'Add to Friends',
+            onPress: () => onAddFriend(contact),
+          },
+          {
+            text: 'Remove from Recents',
+            style: 'destructive',
+            onPress: () => onDelete(contact),
+          },
+          { text: 'Cancel', style: 'cancel' },
+        ]
+      );
+    }
+  };
+
   return (
     <View style={[drawerStyles.contactRow, isOnline && drawerStyles.contactRowOnline]}>
-      <View style={drawerStyles.contactLeft}>
-        <View style={[drawerStyles.statusDot, isOnline ? drawerStyles.dotOnline : drawerStyles.dotOffline]} />
-        <View style={drawerStyles.contactAvatar}>
-          <Text style={drawerStyles.contactAvatarText}>{contact.name.charAt(0).toUpperCase()}</Text>
-        </View>
-        <Text style={drawerStyles.contactName}>{contact.name}</Text>
-      </View>
+      <TouchableOpacity
+        style={[drawerStyles.contactAvatar, isOnline && drawerStyles.contactAvatarOnline]}
+        onPress={handleAvatarPress}
+      >
+        <Text style={drawerStyles.contactAvatarText}>{contact.name.charAt(0).toUpperCase()}</Text>
+      </TouchableOpacity>
+      <Text style={drawerStyles.contactName} numberOfLines={1} ellipsizeMode="tail">{contact.name}</Text>
       <View style={drawerStyles.contactRight}>
         {isOnline && (
-          status?.locked ? (
+          isLocked ? (
             <Text style={drawerStyles.lockIcon}>🔒</Text>
           ) : (
             <TouchableOpacity style={drawerStyles.joinBtn} onPress={() => onJoin(contact)}>
@@ -93,14 +129,6 @@ function ContactRow({ contact, isFriend, statuses, onJoin, onAddFriend, onDelete
             </TouchableOpacity>
           )
         )}
-        {!isFriend && (
-          <TouchableOpacity style={drawerStyles.starBtn} onPress={() => onAddFriend(contact)}>
-            <Text style={drawerStyles.starBtnText}>⭐</Text>
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity style={drawerStyles.deleteBtn} onPress={() => onDelete(contact)}>
-          <Text style={drawerStyles.deleteBtnText}>✕</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -672,42 +700,30 @@ const drawerStyles = StyleSheet.create({
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     backgroundColor: '#1a1a1a',
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: '#333333',
+    gap: 10,
   },
   contactRowOnline: {
     borderColor: '#1DB954',
   },
-  contactLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 10,
-  },
-  dotOnline: {
-    backgroundColor: '#1DB954',
-  },
-  dotOffline: {
-    backgroundColor: '#555555',
-  },
   contactAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#333333',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    borderWidth: 2,
+    borderColor: '#333333',
+    flexShrink: 0,
+  },
+  contactAvatarOnline: {
+    borderColor: '#1DB954',
   },
   contactAvatarText: {
     color: '#ffffff',
@@ -717,11 +733,13 @@ const drawerStyles = StyleSheet.create({
   contactName: {
     color: '#ffffff',
     fontSize: 15,
+    flex: 1,
   },
   contactRight: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   joinBtn: {
     backgroundColor: '#1DB954',
