@@ -32,12 +32,12 @@ Notifications.setNotificationHandler({
 
 function BorromeanIcon({ size = 28, color = '#ffffff' }: { size?: number, color?: string }) {
   const r = size * 0.32;
-  const cx1 = size * 0.38;
-  const cy1 = size * 0.38;
-  const cx2 = size * 0.62;
-  const cy2 = size * 0.38;
-  const cx3 = size * 0.5;
-  const cy3 = size * 0.62;
+  const cx1 = size * 0.5;
+  const cy1 = size * 0.28;
+  const cx2 = size * 0.38;
+  const cy2 = size * 0.50;
+  const cx3 = size * 0.62;
+  const cy3 = size * 0.50;
   return (
     <View style={{ width: size, height: size }}>
       {[[cx1, cy1], [cx2, cy2], [cx3, cy3]].map(([cx, cy], i) => (
