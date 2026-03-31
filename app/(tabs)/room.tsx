@@ -576,7 +576,11 @@ export default function RoomScreen() {
       serverUrl={LIVEKIT_URL}
       token={token}
       connect={true}
-      audio={true}
+      audio={{
+        noiseSuppression: true,
+        echoCancellation: true,
+        autoGainControl: true,
+      }}
       video={false}
     >
       <RoomContent onLeave={handleLeave} code={roomCode} userId={userId} displayName={displayName} />
