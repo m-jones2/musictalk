@@ -1,11 +1,22 @@
 module.exports = {
   expo: {
-    name: "MusicTalk",
-    slug: "musictalk",
+    name: "SoundZone",
+    slug: "soundzone",
     version: "1.0.0",
+    icon: "./assets/images/icon.png",
+    scheme: "soundzone",
+    splash: {
+      image: "./assets/images/splash-icon.png",
+      backgroundColor: "#0f0f0f",
+      resizeMode: "contain",
+    },
     android: {
       package: "com.mjones4.musictalk",
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
+      adaptiveIcon: {
+        foregroundImage: "./assets/images/android-icon-foreground.png",
+        backgroundColor: "#0f0f0f",
+      },
     },
     extra: {
       eas: {
