@@ -11,7 +11,7 @@ module.exports = {
       resizeMode: "contain",
     },
     android: {
-      package: "com.mjones4.musictalk",
+      package: "com.mjones4.soundzone",
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
       adaptiveIcon: {
         foregroundImage: "./assets/images/android-icon-foreground.png",
