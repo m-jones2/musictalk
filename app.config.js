@@ -1,7 +1,8 @@
 module.exports = {
   expo: {
+    owner: "mjones4",
     name: "SoundZone",
-    slug: "soundzone",
+    slug: "musictalk",
     version: "1.0.0",
     icon: "./assets/images/icon.png",
     scheme: "soundzone",
