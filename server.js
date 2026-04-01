@@ -192,5 +192,5 @@ const server = http.createServer(async (req, res) => {
 
 const PORT = process.env.PORT || 8080;
 server.listen(PORT, () => {
-  console.log(`MusicTalk token server running on port ${PORT}`);
+  console.log(`SoundZone token server running on port ${PORT}`);
 });
