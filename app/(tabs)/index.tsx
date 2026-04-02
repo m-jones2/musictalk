@@ -5,6 +5,7 @@ import {
   Alert,
   Animated,
   Dimensions,
+  PermissionsAndroid, Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -160,6 +161,18 @@ export default function HomeScreen() {
       setUserId(id);
       setLoading(false);
     });
+
+    if (Platform.OS === 'android') {
+      PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+        {
+          title: 'SoundZone Microphone Permission',
+          message: 'SoundZone needs access to your microphone to enable voice chat.',
+          buttonPositive: 'Allow',
+          buttonNegative: 'Deny',
+        }
+      );
+    }
   }, []);
 
   const openLeftDrawer = () => {
