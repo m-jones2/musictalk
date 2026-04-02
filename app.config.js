@@ -15,7 +15,7 @@ module.exports = {
       package: "com.mjones4.soundzone",
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
       adaptiveIcon: {
-        foregroundImage: "./assets/images/android-icon-foreground.png",
+        foregroundImage: "./assets/images/icon.png",
         backgroundColor: "#0f0f0f",
       },
     },
