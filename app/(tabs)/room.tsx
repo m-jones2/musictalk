@@ -532,11 +532,27 @@ export default function RoomScreen() {
     const controller = new AbortController();
 
     fetch(
-      `${TOKEN_SERVER}?room=${roomCode}&userId=${userId}&name=${encodeURIComponent(displayName)}`,
+      `${TOKEN_SERVER}?room=${roomCode}&userId=${userId}&name=${encodeURIComponent(displayName)}&key=mt_secure_2026`,
       { signal: controller.signal }
     )
       .then(res => res.json())
       .then(data => {
+        if (data.locked) {
+          Alert.alert(
+            '🔒 Room Locked',
+            'This room is locked. You need an invite to join.',
+            [{ text: 'OK', onPress: () => router.back() }]
+          );
+          return;
+        }
+        if (data.error) {
+          Alert.alert(
+            '🔒 Room Locked',
+            'This room is locked. You need an invite to join.',
+            [{ text: 'OK', onPress: () => router.back() }]
+          );
+          return;
+        }
         setToken(data.token);
         setConnected(true);
       })

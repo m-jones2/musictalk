@@ -14,7 +14,14 @@ setInterval(() => {
   const now = Date.now();
   Object.keys(activeUsers).forEach(userId => {
     if (now - activeUsers[userId].lastSeen > 35000) {
+      const room = activeUsers[userId].room;
       delete activeUsers[userId];
+      
+      // Auto-unlock room if no one is left
+      const anyoneLeft = Object.values(activeUsers).some(u => u.room === room);
+      if (!anyoneLeft) {
+        lockedRooms.delete(room);
+      }
     }
   });
 }, 15000);
@@ -157,7 +164,14 @@ const server = http.createServer(async (req, res) => {
   if (path === '/leave') {
     const userId = params.userId;
     if (userId && activeUsers[userId]) {
+      const room = activeUsers[userId].room;
       delete activeUsers[userId];
+      
+      // Auto-unlock room if no one is left in it
+      const anyoneLeft = Object.values(activeUsers).some(u => u.room === room);
+      if (!anyoneLeft) {
+        lockedRooms.delete(room);
+      }
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
