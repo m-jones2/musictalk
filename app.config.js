@@ -15,9 +15,15 @@ module.exports = {
       package: "com.mjones4.soundzone",
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
       adaptiveIcon: {
-        foregroundImage: "./assets/images/icon.png",
+        foregroundImage: "./assets/images/android-icon-foreground.png",
         backgroundColor: "#0f0f0f",
       },
+      permissions: [
+        "RECORD_AUDIO",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_MICROPHONE",
+        "WAKE_LOCK",
+      ],
     },
     extra: {
       eas: {
