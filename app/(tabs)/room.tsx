@@ -15,7 +15,6 @@ import { Alert, Animated, Dimensions, ScrollView, StyleSheet, Text, TouchableOpa
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getUserId } from '../../lib/utils';
 
-
 registerGlobals();
 
 const LIVEKIT_URL = 'wss://musictalk-b7vzplg9.livekit.cloud';
