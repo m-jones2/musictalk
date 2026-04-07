@@ -502,6 +502,50 @@ export default function HomeScreen() {
             />
             <Text style={drawerStyles.hint}>This is how others will see you in groups</Text>
           </View>
+
+          <View style={drawerStyles.section}>
+            <Text style={drawerStyles.sectionTitle}>How To Use SoundZone</Text>
+
+            <View style={drawerStyles.howToItem}>
+              <Text style={drawerStyles.howToTitle}>🎵 Creating a Group</Text>
+              <Text style={drawerStyles.howToText}>Tap "Create a Group" on the home screen. Share the room code with friends so they can join. Play your music and talk freely — your voice overlays on everyone's music.</Text>
+            </View>
+
+            <View style={drawerStyles.howToItem}>
+              <Text style={drawerStyles.howToTitle}>🔗 Joining a Group</Text>
+              <Text style={drawerStyles.howToText}>Tap "Join a Group" and enter the room code shared by your friend. You can also tap "Join" next to any online contact on the home screen or in your contacts list.</Text>
+            </View>
+
+            <View style={drawerStyles.howToItem}>
+              <Text style={drawerStyles.howToTitle}>📨 Inviting Friends</Text>
+              <Text style={drawerStyles.howToText}>While in a group, tap the rings icon in the top left to open your contacts. Tap "Invite" next to any friend to send them a push notification with your room code.</Text>
+            </View>
+
+            <View style={drawerStyles.howToItem}>
+              <Text style={drawerStyles.howToTitle}>🔊 Volume Controls</Text>
+              <Text style={drawerStyles.howToText}>Use the master slider to balance voice vs music for everyone. Each participant has their own slider to adjust their volume individually. Slide left for less voice, right for more.</Text>
+            </View>
+
+            <View style={drawerStyles.howToItem}>
+              <Text style={drawerStyles.howToTitle}>🔇 Muting</Text>
+              <Text style={drawerStyles.howToText}>Tap "Mute Self" to stop transmitting your voice. Tap "Mute All" to silence everyone at once. Each participant also has their own mute button for individual control.</Text>
+            </View>
+
+            <View style={drawerStyles.howToItem}>
+              <Text style={drawerStyles.howToTitle}>🔒 Locking a Group</Text>
+              <Text style={drawerStyles.howToText}>Tap the padlock icon in the top right of the room to lock it. Locked rooms can only be joined by invite — the Join button won't appear for others. The room unlocks automatically when everyone leaves.</Text>
+            </View>
+
+            <View style={drawerStyles.howToItem}>
+              <Text style={drawerStyles.howToTitle}>👥 Friends & Contacts</Text>
+              <Text style={drawerStyles.howToText}>Anyone you share a room with appears in Recent Contacts. Tap their avatar to add them as a Friend for easy access. Friends appear at the top of your contacts list and never expire.</Text>
+            </View>
+
+            <View style={drawerStyles.howToItem}>
+              <Text style={drawerStyles.howToTitle}>🎤 Best Audio Tips</Text>
+              <Text style={drawerStyles.howToText}>For best results use earbuds or headphones to prevent echo. Talk at a normal volume — noise suppression handles background noise. The app works on WiFi and mobile data.</Text>
+            </View>
+          </View>
         </ScrollView>
       </Animated.View>
     </View>
@@ -825,5 +869,22 @@ const drawerStyles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 32,
+  },
+  howToItem: {
+    marginBottom: 16,
+    borderLeftWidth: 2,
+    borderLeftColor: '#1DB954',
+    paddingLeft: 12,
+  },
+  howToTitle: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  howToText: {
+    color: '#888888',
+    fontSize: 13,
+    lineHeight: 20,
   },
 });
