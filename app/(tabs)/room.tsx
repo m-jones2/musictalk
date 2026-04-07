@@ -508,16 +508,20 @@ export default function RoomScreen() {
 
     // Register push token
     Notifications.requestPermissionsAsync().then(async ({ status }) => {
+      console.log('Notification permission status:', status);
       if (status === 'granted') {
         try {
           const tokenData = await Notifications.getExpoPushTokenAsync({
             projectId: '9e5dc256-5eee-4850-acf7-44568d9cb25f',
           });
           const pushToken = tokenData.data;
+          console.log('Push token:', pushToken);
           fetch(`${TOKEN_SERVER}/register-push?userId=${userId}&token=${encodeURIComponent(pushToken)}`).catch(() => {});
         } catch (e) {
           console.log('Push token error:', e);
         }
+      } else {
+        console.log('Notification permission denied');
       }
     });
 

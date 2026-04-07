@@ -178,8 +178,12 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Get status by userIds
-  if (path === '/status') {
+  // Debug - check push tokens (remove before launch)
+  if (path === '/debug-tokens') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ tokens: Object.keys(pushTokens), count: Object.keys(pushTokens).length }));
+    return;
+  }
     const ids = params.ids ? params.ids.split(',') : [];
     const result = {};
     ids.forEach(id => {
