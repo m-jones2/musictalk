@@ -506,11 +506,9 @@ export default function RoomScreen() {
       try {
         const { status } = await Notifications.requestPermissionsAsync();
         if (status === 'granted') {
-          const tokenData = await Notifications.getExpoPushTokenAsync({
-            projectId: '9e5dc256-5eee-4850-acf7-44568d9cb25f',
-          });
-          const pushToken = tokenData.data;
-          console.log('Registering push token for userId:', userId, 'token:', pushToken);
+          const deviceToken = await Notifications.getDevicePushTokenAsync();
+          const pushToken = deviceToken.data;
+          console.log('Registering device push token for userId:', userId, 'token:', pushToken);
           const response = await fetch(`${TOKEN_SERVER}/register-push?userId=${userId}&token=${encodeURIComponent(pushToken)}`);
           const result = await response.json();
           console.log('Push registration result:', result);
