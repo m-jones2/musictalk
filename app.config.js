@@ -44,6 +44,7 @@ module.exports = {
         {
           icon: "./assets/images/icon.png",
           color: "#1DB954",
+          androidMode: "default",
         },
       ],
     ],

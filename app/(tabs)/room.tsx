@@ -516,6 +516,7 @@ export default function RoomScreen() {
           });
           const pushToken = tokenData.data;
           console.log('Push token:', pushToken);
+          console.log('Registering push token for userId:', userId);
           fetch(`${TOKEN_SERVER}/register-push?userId=${userId}&token=${encodeURIComponent(pushToken)}`).catch(() => {});
         } catch (e) {
           console.log('Push token error:', e);
