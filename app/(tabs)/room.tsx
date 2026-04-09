@@ -519,8 +519,8 @@ export default function RoomScreen() {
           const result = await response.json();
           console.log('Push registration result:', result);
         }
-      } catch (e) {
-        console.error('Push token error:', e);
+      } catch (e: any) {
+        fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent(e.message || 'unknown')}&userId=${userId}`).catch(() => {});
       }
     };
 

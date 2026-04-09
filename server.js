@@ -186,7 +186,13 @@ const server = http.createServer(async (req, res) => {
     res.end(JSON.stringify({ tokens: Object.keys(pushTokens), count: Object.keys(pushTokens).length }));
     return;
   }
-
+  // Log client errors for debugging
+  if (path === '/log-error') {
+    console.log('Client error - userId:', params.userId, 'error:', params.error);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ success: true }));
+    return;
+  }
   // Get status by userIds
   if (path === '/status') {
     const ids = params.ids ? params.ids.split(',') : [];
