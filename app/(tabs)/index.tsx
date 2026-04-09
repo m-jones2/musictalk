@@ -1,12 +1,15 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import VIForegroundService from '@supersami/rn-foreground-service';
 import * as Notifications from 'expo-notifications';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
+  AppState,
   Dimensions,
-  PermissionsAndroid, Platform,
+  PermissionsAndroid,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -154,6 +157,33 @@ export default function HomeScreen() {
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    VIForegroundService.register({
+      config: {
+        alert: false,
+        onServiceErrorCallBack: () => console.log('Foreground service error'),
+      },
+    });
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', async (state) => {
+      if (state === 'active' && userId) {
+        try {
+          const { status } = await Notifications.requestPermissionsAsync();
+          if (status === 'granted') {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            const deviceToken = await Notifications.getDevicePushTokenAsync();
+            await fetch(`${TOKEN_SERVER}/register-push?userId=${userId}&token=${encodeURIComponent(deviceToken.data)}`);
+          }
+        } catch (e: any) {
+          fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent(e.message || 'unknown')}&userId=${userId}`).catch(() => {});
+        }
+      }
+    });
+    return () => subscription.remove();
+  }, [userId]);
+
+  useEffect(() => {
     Promise.all([
       AsyncStorage.getItem('username'),
       getUserId(),
@@ -167,8 +197,16 @@ export default function HomeScreen() {
         const { status } = await Notifications.requestPermissionsAsync();
         if (status === 'granted') {
           await new Promise(resolve => setTimeout(resolve, 2000));
-          const deviceToken = await Notifications.getDevicePushTokenAsync();
-          const pushToken = deviceToken.data;
+          let pushToken = '';
+          try {
+            const deviceToken = await Notifications.getDevicePushTokenAsync();
+            pushToken = deviceToken.data;
+          } catch {
+            const expoToken = await Notifications.getExpoPushTokenAsync({
+              projectId: '9e5dc256-5eee-4850-acf7-44568d9cb25f',
+            });
+            pushToken = expoToken.data;
+          }
           console.log('App launch push token for userId:', id, 'token:', pushToken);
           await fetch(`${TOKEN_SERVER}/register-push?userId=${id}&token=${encodeURIComponent(pushToken)}`);
         }
