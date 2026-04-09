@@ -166,13 +166,14 @@ export default function HomeScreen() {
       try {
         const { status } = await Notifications.requestPermissionsAsync();
         if (status === 'granted') {
+          await new Promise(resolve => setTimeout(resolve, 2000));
           const deviceToken = await Notifications.getDevicePushTokenAsync();
           const pushToken = deviceToken.data;
           console.log('App launch push token for userId:', id, 'token:', pushToken);
           await fetch(`${TOKEN_SERVER}/register-push?userId=${id}&token=${encodeURIComponent(pushToken)}`);
         }
-      } catch (e) {
-        console.error('App launch push token error:', e);
+      } catch (e: any) {
+        fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent(e.message || 'unknown')}&userId=${id}`).catch(() => {});
       }
     });
 

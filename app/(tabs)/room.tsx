@@ -512,6 +512,7 @@ export default function RoomScreen() {
       try {
         const { status } = await Notifications.requestPermissionsAsync();
         if (status === 'granted') {
+          await new Promise(resolve => setTimeout(resolve, 2000));
           const deviceToken = await Notifications.getDevicePushTokenAsync();
           const pushToken = deviceToken.data;
           console.log('Registering device push token for userId:', userId, 'token:', pushToken);
