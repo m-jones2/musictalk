@@ -24,6 +24,14 @@ module.exports = {
         "FOREGROUND_SERVICE_MICROPHONE",
         "WAKE_LOCK",
       ],
+      androidManifest: {
+        service: [
+          {
+            "android:name": "com.supersami.foregroundservice.ForegroundService",
+            "android:foregroundServiceType": "microphone",
+          }
+        ]
+      },
     },
     extra: {
       eas: {
