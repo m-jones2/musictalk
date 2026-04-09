@@ -50,13 +50,6 @@ module.exports = {
       [
         "expo-task-manager"
       ],
-      [
-        "@supersami/rn-foreground-service",
-        {
-          "notificationTitle": "SoundZone Active",
-          "notificationText": "Voice chat is running"
-        }
-      ],
     ],
   },
 };
