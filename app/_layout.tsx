@@ -12,7 +12,7 @@ export default function RootLayout() {
       if (data?.type === 'invite' && data?.roomCode) {
         router.push({
           pathname: '/(tabs)/room',
-          params: { code: data.roomCode, name: '' }
+          params: { code: String(data.roomCode), name: '' }
         });
       }
     });

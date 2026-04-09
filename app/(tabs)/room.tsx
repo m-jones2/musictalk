@@ -13,6 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { startForegroundService, stopForegroundService } from '../../foregroundService';
 import { getUserId } from '../../lib/utils';
 
 registerGlobals();
@@ -24,7 +25,8 @@ const DRAWER_WIDTH = SCREEN_WIDTH * 0.82;
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
   }),
@@ -203,6 +205,10 @@ function RoomContent({ onLeave, code, userId, displayName }: {
   const [masterVolume, setMasterVolume] = useState(0.8);
   const [allMuted, setAllMuted] = useState(false);
   const prevCountRef = useRef(0);
+
+  useEffect(() => {
+    startForegroundService(code, remoteParticipants.length + 1);
+  }, [remoteParticipants.length]);
   const [friends, setFriends] = useState<any[]>([]);
   const [recents, setRecents] = useState<any[]>([]);
   const [statuses, setStatuses] = useState<any>({});
@@ -561,6 +567,7 @@ export default function RoomScreen() {
         }
         setToken(data.token);
         setConnected(true);
+        startForegroundService(roomCode, 1);
       })
       .catch(err => {
         if (err.name !== 'AbortError') {
@@ -571,6 +578,7 @@ export default function RoomScreen() {
     return () => {
       controller.abort();
       clearInterval(heartbeat);
+      stopForegroundService();
       setToken(null);
       setConnected(false);
       AudioSession.stopAudioSession();
@@ -579,6 +587,7 @@ export default function RoomScreen() {
 
   const handleLeave = async () => {
     fetch(`${TOKEN_SERVER}/leave?userId=${userId}`).catch(() => {});
+    await stopForegroundService();
     setToken(null);
     setConnected(false);
     AudioSession.stopAudioSession();

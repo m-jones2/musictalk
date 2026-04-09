@@ -342,7 +342,7 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <Text style={styles.subtitle}>Loading...</Text>
+        <Text style={styles.welcome}>Loading...</Text>
       </View>
     );
   }
