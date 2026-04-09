@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -156,10 +157,23 @@ export default function HomeScreen() {
     Promise.all([
       AsyncStorage.getItem('username'),
       getUserId(),
-    ]).then(([savedName, id]) => {
+    ]).then(async ([savedName, id]) => {
       if (savedName) setName(savedName);
       setUserId(id);
       setLoading(false);
+
+      // Register push token on app launch
+      try {
+        const { status } = await Notifications.requestPermissionsAsync();
+        if (status === 'granted') {
+          const deviceToken = await Notifications.getDevicePushTokenAsync();
+          const pushToken = deviceToken.data;
+          console.log('App launch push token for userId:', id, 'token:', pushToken);
+          await fetch(`${TOKEN_SERVER}/register-push?userId=${id}&token=${encodeURIComponent(pushToken)}`);
+        }
+      } catch (e) {
+        console.error('App launch push token error:', e);
+      }
     });
 
     if (Platform.OS === 'android') {
