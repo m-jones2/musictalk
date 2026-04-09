@@ -1,5 +1,7 @@
 import VIForegroundService from '@supersami/rn-foreground-service';
 
+const TOKEN_SERVER = 'https://musictalk-production.up.railway.app';
+
 export const startForegroundService = async (roomCode: string, participantCount: number) => {
   try {
     await VIForegroundService.start({
@@ -8,20 +10,20 @@ export const startForegroundService = async (roomCode: string, participantCount:
       message: `Room: ${roomCode} • ${participantCount} connected`,
       vibration: false,
       visibility: 'public',
-      icon: 'ic_launcher',
+      icon: 'ic_notification',
       importance: 'high',
       number: '0',
       button: false,
     });
-  } catch (e) {
-    console.log('Foreground service start error:', e);
+  } catch (e: any) {
+    fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent('fg_start: ' + (e.message || 'unknown'))}&userId=foreground`).catch(() => {});
   }
 };
 
 export const stopForegroundService = async () => {
   try {
     await VIForegroundService.stop();
-  } catch (e) {
-    console.log('Foreground service stop error:', e);
+  } catch (e: any) {
+    fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent('fg_stop: ' + (e.message || 'unknown'))}&userId=foreground`).catch(() => {});
   }
 };

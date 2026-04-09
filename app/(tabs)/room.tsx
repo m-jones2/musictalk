@@ -8,6 +8,7 @@ import {
 } from '@livekit/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
+import VIForegroundService from '@supersami/rn-foreground-service';
 import * as Notifications from 'expo-notifications';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -503,6 +504,14 @@ export default function RoomScreen() {
 
   useEffect(() => {
     getUserId().then(id => setUserId(id));
+    VIForegroundService.register({
+      config: {
+        alert: false,
+        onServiceErrorCallBack: () => {
+          fetch(`${TOKEN_SERVER}/log-error?error=foreground_service_error&userId=unknown`).catch(() => {});
+        },
+      },
+    });
   }, []);
 
   useEffect(() => {
