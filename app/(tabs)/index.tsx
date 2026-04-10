@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import VIForegroundService from '@supersami/rn-foreground-service';
+import VIForegroundService from '@voximplant/react-native-foreground-service';
 import * as Notifications from 'expo-notifications';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -157,12 +157,12 @@ export default function HomeScreen() {
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    VIForegroundService.register({
-      config: {
-        alert: false,
-        onServiceErrorCallBack: () => console.log('Foreground service error'),
-      },
-    });
+    VIForegroundService.createNotificationChannel({
+      id: 'soundzone_channel',
+      name: 'SoundZone',
+      description: 'SoundZone voice chat',
+      enableVibration: false,
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {

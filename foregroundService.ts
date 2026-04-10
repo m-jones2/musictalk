@@ -1,19 +1,24 @@
-import VIForegroundService from '@supersami/rn-foreground-service';
+import VIForegroundService from '@voximplant/react-native-foreground-service';
 
 const TOKEN_SERVER = 'https://musictalk-production.up.railway.app';
 
 export const startForegroundService = async (roomCode: string, participantCount: number) => {
   try {
-    await VIForegroundService.start({
+    await VIForegroundService.createNotificationChannel({
+      id: 'soundzone_channel',
+      name: 'SoundZone',
+      description: 'SoundZone voice chat',
+      enableVibration: false,
+    });
+
+    await VIForegroundService.startService({
       id: 1,
       title: '🎵 SoundZone Active',
-      message: `Room: ${roomCode} • ${participantCount} connected`,
-      vibration: false,
-      visibility: 'public',
+      text: `Room: ${roomCode} • ${participantCount} connected`,
       icon: 'ic_notification',
-      importance: 'high',
-      number: '0',
       button: false,
+      channelId: 'soundzone_channel',
+      serviceType: 'microphone',
     });
   } catch (e: any) {
     fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent('fg_start: ' + (e.message || 'unknown'))}&userId=foreground`).catch(() => {});
@@ -22,7 +27,7 @@ export const startForegroundService = async (roomCode: string, participantCount:
 
 export const stopForegroundService = async () => {
   try {
-    await VIForegroundService.stop();
+    await VIForegroundService.stopService();
   } catch (e: any) {
     fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent('fg_stop: ' + (e.message || 'unknown'))}&userId=foreground`).catch(() => {});
   }
