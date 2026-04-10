@@ -14,7 +14,6 @@ export const startForegroundService = async (roomCode: string, participantCount:
       importance: 'high',
       number: '0',
       button: false,
-      serviceType: 'microphone',
     });
   } catch (e: any) {
     fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent('fg_start: ' + (e.message || 'unknown'))}&userId=foreground`).catch(() => {});
