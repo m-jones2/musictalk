@@ -103,7 +103,7 @@ const server = http.createServer(async (req, res) => {
   if (path === '/register-push') {
     const userId = params.userId;
     const pushToken = params.token;
-    console.log('Register push called - userId:', userId, 'token:', pushToken ? 'present' : 'missing');
+    console.log('Register push called - userId:', userId, 'token:', pushToken);
     if (userId && pushToken) {
       pushTokens[userId] = pushToken;
       console.log('Push token saved for:', userId);
