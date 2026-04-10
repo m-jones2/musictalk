@@ -27,8 +27,9 @@ module.exports = {
       androidManifest: {
         service: [
           {
-            "android:name": "com.supersami.foregroundservice.ForegroundService",
+            "android:name": "com.voximplant.foregroundservice.VIForegroundService",
             "android:foregroundServiceType": "microphone",
+            "android:stopWithTask": "true",
           }
         ]
       },
@@ -44,11 +45,6 @@ module.exports = {
         {
           ios: {
             useFrameworks: "static",
-          },
-          android: {
-            compileSdkVersion: 34,
-            targetSdkVersion: 34,
-            buildToolsVersion: "34.0.0",
           },
         },
       ],
