@@ -199,13 +199,13 @@ export default function HomeScreen() {
           await new Promise(resolve => setTimeout(resolve, 2000));
           let pushToken = '';
           try {
-            const deviceToken = await Notifications.getDevicePushTokenAsync();
-            pushToken = deviceToken.data;
-          } catch {
             const expoToken = await Notifications.getExpoPushTokenAsync({
               projectId: '9e5dc256-5eee-4850-acf7-44568d9cb25f',
             });
             pushToken = expoToken.data;
+          } catch {
+            const deviceToken = await Notifications.getDevicePushTokenAsync();
+            pushToken = deviceToken.data;
           }
           console.log('App launch push token for userId:', id, 'token:', pushToken);
           await fetch(`${TOKEN_SERVER}/register-push?userId=${id}&token=${encodeURIComponent(pushToken)}`);
