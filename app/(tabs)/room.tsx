@@ -8,7 +8,6 @@ import {
 } from '@livekit/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Slider from '@react-native-community/slider';
-import VIForegroundService from '@voximplant/react-native-foreground-service';
 import * as Notifications from 'expo-notifications';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -504,12 +503,6 @@ export default function RoomScreen() {
 
   useEffect(() => {
     getUserId().then(id => setUserId(id));
-    VIForegroundService.createNotificationChannel({
-      id: 'soundzone_channel',
-      name: 'SoundZone',
-      description: 'SoundZone voice chat',
-      enableVibration: false,
-    }).catch(() => {});
   }, []);
 
   useEffect(() => {
