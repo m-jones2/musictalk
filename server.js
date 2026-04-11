@@ -134,7 +134,7 @@ const server = http.createServer(async (req, res) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: pushToken,
-          title: '🎵 MusicTalk Invite',
+          title: '🎵 SoundZone Invite',
           body: `${fromName} invited you to join group ${roomCode}`,
           data: { roomCode, type: 'invite' },
           sound: 'default',

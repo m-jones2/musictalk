@@ -306,7 +306,7 @@ function RoomContent({ onLeave, code, userId, displayName }: {
       const newParticipant = remoteParticipants[currentCount - 1];
       Notifications.scheduleNotificationAsync({
         content: {
-          title: '👋 Someone joined MusicTalk',
+          title: '👋 Someone joined SoundZone',
           body: `${newParticipant.name || newParticipant.identity} joined your room`,
           sound: true,
         },
@@ -315,7 +315,7 @@ function RoomContent({ onLeave, code, userId, displayName }: {
     } else if (currentCount < prevCount) {
       Notifications.scheduleNotificationAsync({
         content: {
-          title: '👋 Someone left MusicTalk',
+          title: '👋 Someone left SoundZone',
           body: 'A participant left your room',
           sound: true,
         },
