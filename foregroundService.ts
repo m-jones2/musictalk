@@ -1,9 +1,9 @@
-const TOKEN_SERVER = 'https://musictalk-production.up.railway.app';
+// This file now delegates to the native module via src/services/ForegroundService.ts
+// Kept for backwards compatibility with existing imports in room.tsx
 
-export const startForegroundService = async (roomCode: string, participantCount: number) => {
-  console.log('Foreground service placeholder - room:', roomCode);
-};
-
-export const stopForegroundService = async () => {
-  console.log('Foreground service stopped');
-};
+export {
+  isForegroundServiceRunning,
+  requestVoicePermissions, startForegroundService,
+  stopForegroundService,
+  updateForegroundService
+} from './src/services/ForegroundService';

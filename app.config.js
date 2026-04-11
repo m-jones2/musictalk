@@ -24,15 +24,6 @@ module.exports = {
         "FOREGROUND_SERVICE_MICROPHONE",
         "WAKE_LOCK",
       ],
-      androidManifest: {
-        service: [
-          {
-            "android:name": "com.voximplant.foregroundservice.VIForegroundService",
-            "android:foregroundServiceType": "microphone",
-            "android:stopWithTask": "true",
-          }
-        ]
-      },
     },
     extra: {
       eas: {
@@ -40,6 +31,7 @@ module.exports = {
       },
     },
     plugins: [
+      "./plugins/withSoundZoneService",
       [
         "expo-build-properties",
         {

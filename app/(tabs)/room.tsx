@@ -13,7 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { startForegroundService, stopForegroundService } from '../../foregroundService';
+import { requestVoicePermissions, startForegroundService, stopForegroundService, updateForegroundService } from '../../foregroundService';
 import { getUserId } from '../../lib/utils';
 
 registerGlobals();
@@ -207,7 +207,7 @@ function RoomContent({ onLeave, code, userId, displayName }: {
   const prevCountRef = useRef(0);
 
   useEffect(() => {
-    startForegroundService(code, remoteParticipants.length + 1);
+    updateForegroundService(code);
   }, [remoteParticipants.length]);
   const [friends, setFriends] = useState<any[]>([]);
   const [recents, setRecents] = useState<any[]>([]);
@@ -543,6 +543,27 @@ export default function RoomScreen() {
     setConnected(false);
     AudioSession.startAudioSession();
 
+    // Request permissions before starting foreground service
+    requestVoicePermissions().then(async (micGranted) => {
+      if (!micGranted) {
+        Alert.alert(
+          'Microphone Required',
+          'SoundZone needs microphone access for voice chat.',
+          [{ text: 'OK', onPress: () => router.back() }]
+        );
+        return;
+      }
+
+      // Start foreground service BEFORE connecting to LiveKit
+      // Must be called while app is foregrounded — critical for Android 14
+      try {
+        await startForegroundService(roomCode);
+      } catch (e) {
+        console.warn('[room.tsx] Foreground service failed to start:', e);
+        // Continue anyway — voice chat still works, just no background audio
+      }
+    });
+
     // Heartbeat
     const sendHeartbeat = () => {
       fetch(`${TOKEN_SERVER}/heartbeat?room=${roomCode}&userId=${userId}`).catch(() => {});
@@ -559,6 +580,7 @@ export default function RoomScreen() {
       .then(res => res.json())
       .then(data => {
         if (data.locked) {
+          stopForegroundService().catch(() => {});
           Alert.alert(
             '🔒 Room Locked',
             'This room is locked. You need an invite to join.',
@@ -567,6 +589,7 @@ export default function RoomScreen() {
           return;
         }
         if (data.error) {
+          stopForegroundService().catch(() => {});
           Alert.alert(
             '🔒 Room Locked',
             'This room is locked. You need an invite to join.',
@@ -576,7 +599,7 @@ export default function RoomScreen() {
         }
         setToken(data.token);
         setConnected(true);
-        startForegroundService(roomCode, 1);
+        startForegroundService(roomCode);
       })
       .catch(err => {
         if (err.name !== 'AbortError') {
@@ -587,7 +610,8 @@ export default function RoomScreen() {
     return () => {
       controller.abort();
       clearInterval(heartbeat);
-      stopForegroundService();
+      // Stop foreground service on ALL exit paths
+      stopForegroundService().catch(() => {});
       setToken(null);
       setConnected(false);
       AudioSession.stopAudioSession();
@@ -596,7 +620,8 @@ export default function RoomScreen() {
 
   const handleLeave = async () => {
     fetch(`${TOKEN_SERVER}/leave?userId=${userId}`).catch(() => {});
-    await stopForegroundService();
+    // Stop foreground service before disconnecting
+    await stopForegroundService().catch(() => {});
     setToken(null);
     setConnected(false);
     AudioSession.stopAudioSession();
