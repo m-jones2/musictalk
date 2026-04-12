@@ -597,7 +597,6 @@ export default function RoomScreen() {
         }
         setToken(data.token);
         setConnected(true);
-        startForegroundService(roomCode, userId);
       })
       .catch(err => {
         if (err.name !== 'AbortError') {

@@ -29,6 +29,14 @@ module.exports = {
         "WAKE_LOCK",
       ],
     },
+    runtimeVersion: {
+      policy: "appVersion"
+    },
+    updates: {
+      url: "https://u.expo.dev/9e5dc256-5eee-4850-acf7-44568d9cb25f",
+      enabled: true,
+      checkAutomatically: "ON_LOAD",
+    },
     extra: {
       eas: {
         projectId: "9e5dc256-5eee-4850-acf7-44568d9cb25f",
