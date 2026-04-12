@@ -556,20 +556,18 @@ export default function RoomScreen() {
 
       // Start foreground service BEFORE connecting to LiveKit
       // Must be called while app is foregrounded — critical for Android 14
+      // Passes userId so native Kotlin heartbeat can identify the user
       try {
-        await startForegroundService(roomCode);
+        await startForegroundService(roomCode, userId);
       } catch (e) {
         console.warn('[room.tsx] Foreground service failed to start:', e);
         // Continue anyway — voice chat still works, just no background audio
       }
     });
 
-    // Heartbeat
-    const sendHeartbeat = () => {
-      fetch(`${TOKEN_SERVER}/heartbeat?room=${roomCode}&userId=${userId}`).catch(() => {});
-    };
-    sendHeartbeat();
-    const heartbeat = setInterval(sendHeartbeat, 30000);
+    // Heartbeat is now handled natively in SoundZoneForegroundService.kt
+    // JS heartbeat removed — JS thread is suspended when screen locks
+    const heartbeat = null;
 
     const controller = new AbortController();
 
@@ -599,7 +597,7 @@ export default function RoomScreen() {
         }
         setToken(data.token);
         setConnected(true);
-        startForegroundService(roomCode);
+        startForegroundService(roomCode, userId);
       })
       .catch(err => {
         if (err.name !== 'AbortError') {
@@ -609,7 +607,7 @@ export default function RoomScreen() {
 
     return () => {
       controller.abort();
-      clearInterval(heartbeat);
+      if (heartbeat) clearInterval(heartbeat);
       // Stop foreground service on ALL exit paths
       stopForegroundService().catch(() => {});
       setToken(null);

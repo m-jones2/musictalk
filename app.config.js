@@ -18,6 +18,10 @@ module.exports = {
         foregroundImage: "./assets/images/android-icon-foreground.png",
         backgroundColor: "#0f0f0f",
       },
+      notification: {
+        icon: "./assets/images/notification-icon.png",
+        color: "#1DB954",
+      },
       permissions: [
         "RECORD_AUDIO",
         "FOREGROUND_SERVICE",

@@ -12,7 +12,7 @@ class SoundZoneForegroundModule : Module() {
     override fun definition() = ModuleDefinition {
         Name("SoundZoneForeground")
 
-        AsyncFunction("startService") { roomCode: String ->
+        AsyncFunction("startService") { roomCode: String, heartbeatUrl: String, userId: String ->
             val context = appContext.reactContext?.applicationContext
                 ?: throw Exception("React context not available")
 
@@ -30,6 +30,8 @@ class SoundZoneForegroundModule : Module() {
             val intent = Intent(context, SoundZoneForegroundService::class.java).apply {
                 action = SoundZoneForegroundService.ACTION_START
                 putExtra(SoundZoneForegroundService.EXTRA_ROOM_CODE, roomCode)
+                putExtra(SoundZoneForegroundService.EXTRA_HEARTBEAT_URL, heartbeatUrl)
+                putExtra(SoundZoneForegroundService.EXTRA_USER_ID, userId)
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -67,18 +69,9 @@ class SoundZoneForegroundModule : Module() {
         }
 
         Function("isRunning") {
-            // Returns whether the service is currently running
-            // Used by JS to avoid double-starting
-            try {
-                val context = appContext.reactContext?.applicationContext
-                    ?: return@Function false
-                val manager = context.getSystemService(android.app.ActivityManager::class.java)
-                manager?.getRunningServices(Integer.MAX_VALUE)?.any {
-                    it.service.className == SoundZoneForegroundService::class.java.name
-                } ?: false
-            } catch (e: Exception) {
-                false
-            }
+            // Use companion object flag — more reliable than ActivityManager.getRunningServices()
+            // which is deprecated on newer Android versions
+            SoundZoneForegroundService.isRunning
         }
     }
 }

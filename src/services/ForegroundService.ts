@@ -1,16 +1,15 @@
 import { requireNativeModule } from 'expo-modules-core';
 import { PermissionsAndroid, Platform } from 'react-native';
 
-// This will throw a clear error if the native module is not found
-// Only available in production/development builds — not Expo Go
+const TOKEN_SERVER = 'https://musictalk-production.up.railway.app';
+
 interface SoundZoneForegroundServiceModule {
-  startService(roomCode: string): Promise<void>;
+  startService(roomCode: string, heartbeatUrl: string, userId: string): Promise<void>;
   updateService(roomCode: string): Promise<void>;
   stopService(): Promise<void>;
   isRunning(): boolean;
 }
 
-// Get the native module — will throw if not available
 const getNativeModule = (): SoundZoneForegroundServiceModule | null => {
   if (Platform.OS !== 'android') return null;
   try {
@@ -23,13 +22,13 @@ const getNativeModule = (): SoundZoneForegroundServiceModule | null => {
 
 /**
  * Request all permissions required for the foreground service.
- * Must be called before startService().
+ * Must be called before startForegroundService().
  * Returns true if microphone permission is granted.
  */
 export const requestVoicePermissions = async (): Promise<boolean> => {
   if (Platform.OS !== 'android') return true;
 
-  // Request RECORD_AUDIO — mandatory
+  // Request RECORD_AUDIO — mandatory before starting service
   const micResult = await PermissionsAndroid.request(
     PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
     {
@@ -42,7 +41,8 @@ export const requestVoicePermissions = async (): Promise<boolean> => {
 
   const micGranted = micResult === PermissionsAndroid.RESULTS.GRANTED;
 
-  // Request POST_NOTIFICATIONS on Android 13+ — needed for notification visibility
+  // Request POST_NOTIFICATIONS on Android 13+
+  // Required for foreground service notification to appear in shade
   if (Platform.Version >= 33) {
     await PermissionsAndroid.request(
       PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
@@ -54,18 +54,25 @@ export const requestVoicePermissions = async (): Promise<boolean> => {
 
 /**
  * Start the foreground service.
- * MUST be called while the app is foregrounded (room screen visible).
+ * MUST be called while app is foregrounded (room screen visible).
  * MUST be called after requestVoicePermissions() returns true.
- * MUST be called before connecting to LiveKit.
+ * MUST be called BEFORE connecting to LiveKit.
+ * Passes heartbeat URL and userId so native Kotlin can send
+ * heartbeats while JS thread is suspended.
  */
-export const startForegroundService = async (roomCode: string): Promise<void> => {
+export const startForegroundService = async (
+  roomCode: string,
+  userId: string
+): Promise<void> => {
   if (Platform.OS !== 'android') return;
 
   const module = getNativeModule();
   if (!module) return;
 
+  const heartbeatUrl = `${TOKEN_SERVER}/heartbeat`;
+
   try {
-    await module.startService(roomCode);
+    await module.startService(roomCode, heartbeatUrl, userId);
     console.log('[ForegroundService] Started for room:', roomCode);
   } catch (e: any) {
     console.error('[ForegroundService] Failed to start:', e.message);
@@ -75,7 +82,7 @@ export const startForegroundService = async (roomCode: string): Promise<void> =>
 
 /**
  * Update the notification text without restarting the service.
- * Use when room code changes or on reconnect.
+ * Use when participant count changes or on reconnect.
  */
 export const updateForegroundService = async (roomCode: string): Promise<void> => {
   if (Platform.OS !== 'android') return;
@@ -92,10 +99,10 @@ export const updateForegroundService = async (roomCode: string): Promise<void> =
 
 /**
  * Stop the foreground service.
- * Call on ALL exit paths:
+ * Must be called on ALL exit paths:
  * - Leave room button
  * - LiveKit disconnect event
- * - Connection failure
+ * - Connection failure after service started
  * - Component unmount
  * - Any fatal error
  */
@@ -115,6 +122,7 @@ export const stopForegroundService = async (): Promise<void> => {
 
 /**
  * Check if the foreground service is currently running.
+ * Uses companion object flag — more reliable than ActivityManager on Android 14+
  */
 export const isForegroundServiceRunning = (): boolean => {
   if (Platform.OS !== 'android') return false;
