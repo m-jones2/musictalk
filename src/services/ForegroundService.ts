@@ -13,9 +13,11 @@ interface SoundZoneForegroundServiceModule {
 const getNativeModule = (): SoundZoneForegroundServiceModule | null => {
   if (Platform.OS !== 'android') return null;
   try {
-    return requireNativeModule<SoundZoneForegroundServiceModule>('SoundZoneForeground');
-  } catch (e) {
-    console.warn('[ForegroundService] Native module not available. Are you using a development build?');
+    const mod = requireNativeModule<SoundZoneForegroundServiceModule>('SoundZoneForeground');
+    fetch(`${TOKEN_SERVER}/log-error?error=NATIVE_MODULE_FOUND&userId=system`).catch(() => {});
+    return mod;
+  } catch (e: any) {
+    fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent('NATIVE_MODULE_NOT_FOUND: ' + (e.message || 'unknown'))}&userId=system`).catch(() => {});
     return null;
   }
 };
