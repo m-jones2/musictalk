@@ -559,9 +559,9 @@ export default function RoomScreen() {
       // Passes userId so native Kotlin heartbeat can identify the user
       try {
         await startForegroundService(roomCode, userId);
-      } catch (e) {
+      } catch (e: any) {
         console.warn('[room.tsx] Foreground service failed to start:', e);
-        // Continue anyway — voice chat still works, just no background audio
+        fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent('ROOM_FGS_FAILED: ' + (e.message || 'unknown'))}&userId=${userId}`).catch(() => {});
       }
     });
 

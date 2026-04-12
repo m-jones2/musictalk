@@ -74,8 +74,10 @@ export const startForegroundService = async (
   try {
     await module.startService(roomCode, heartbeatUrl, userId);
     console.log('[ForegroundService] Started for room:', roomCode);
+    fetch(`${TOKEN_SERVER}/log-error?error=FGS_STARTED_OK&userId=${userId}`).catch(() => {});
   } catch (e: any) {
     console.error('[ForegroundService] Failed to start:', e.message);
+    fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent('FGS_FAILED: ' + (e.message || 'unknown'))}&userId=${userId}`).catch(() => {});
     throw e;
   }
 };
