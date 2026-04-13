@@ -1,21 +1,53 @@
 const { withAndroidManifest } = require('@expo/config-plugins');
+const fs = require('fs');
+const path = require('path');
 
 const PACKAGE_NAME = 'com.mjones4.soundzone';
+const PACKAGE_PATH = 'com/mjones4/soundzone';
 
 module.exports = function withSoundZoneService(config) {
-  // Step 1: Inject service declaration into AndroidManifest
-  config = withAndroidManifest(config, (cfg) => {
+  return withAndroidManifest(config, (cfg) => {
     const manifest = cfg.modResults.manifest;
     const mainApplication = manifest.application[0];
+    const projectRoot = cfg.modRequest.projectRoot;
 
-    // Ensure service array exists
+    // Copy Kotlin files into Android project
+    const androidSrcDir = path.join(
+      projectRoot,
+      'android/app/src/main/java',
+      PACKAGE_PATH
+    );
+
+    fs.mkdirSync(androidSrcDir, { recursive: true });
+
+    const kotlinSrcDir = path.join(
+      projectRoot,
+      'modules/soundzone-foreground-service/android/src/main/java',
+      PACKAGE_PATH
+    );
+
+    const filesToCopy = [
+      'SoundZoneForegroundService.kt',
+      'SoundZoneForegroundModule.kt',
+    ];
+
+    for (const file of filesToCopy) {
+      const src = path.join(kotlinSrcDir, file);
+      const dest = path.join(androidSrcDir, file);
+      if (fs.existsSync(src)) {
+        fs.copyFileSync(src, dest);
+        console.log(`[SoundZone Plugin] Copied ${file} to Android project`);
+      } else {
+        console.warn(`[SoundZone Plugin] Missing file: ${src}`);
+      }
+    }
+
+    // Add service declaration
     if (!mainApplication.service) {
       mainApplication.service = [];
     }
 
     const serviceName = `${PACKAGE_NAME}.SoundZoneForegroundService`;
-
-    // Avoid duplicate service declarations
     const alreadyAdded = mainApplication.service.some(
       (s) => s.$?.['android:name'] === serviceName
     );
@@ -32,7 +64,7 @@ module.exports = function withSoundZoneService(config) {
       console.log('[SoundZone Plugin] Added SoundZoneForegroundService to AndroidManifest');
     }
 
-    // Step 2: Ensure required permissions are declared
+    // Add permissions
     if (!manifest['uses-permission']) {
       manifest['uses-permission'] = [];
     }
@@ -59,6 +91,4 @@ module.exports = function withSoundZoneService(config) {
 
     return cfg;
   });
-
-  return config;
 };
