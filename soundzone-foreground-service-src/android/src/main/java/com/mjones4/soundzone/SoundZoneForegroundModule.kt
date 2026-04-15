@@ -16,13 +16,9 @@ class SoundZoneForegroundModule : Module() {
             val context = appContext.reactContext?.applicationContext
                 ?: throw Exception("React context not available")
 
-            // Check RECORD_AUDIO permission before starting service
-            // Prevents SecurityException crash on Android 14
             val audioPermission = ContextCompat.checkSelfPermission(
-                context,
-                Manifest.permission.RECORD_AUDIO
+                context, Manifest.permission.RECORD_AUDIO
             )
-
             if (audioPermission != PackageManager.PERMISSION_GRANTED) {
                 throw Exception("RECORD_AUDIO permission not granted")
             }
@@ -64,13 +60,10 @@ class SoundZoneForegroundModule : Module() {
             val intent = Intent(context, SoundZoneForegroundService::class.java).apply {
                 action = SoundZoneForegroundService.ACTION_STOP
             }
-
             context.startService(intent)
         }
 
         Function("isRunning") {
-            // Use companion object flag — more reliable than ActivityManager.getRunningServices()
-            // which is deprecated on newer Android versions
             SoundZoneForegroundService.isRunning
         }
     }

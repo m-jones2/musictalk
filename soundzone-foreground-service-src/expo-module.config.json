@@ -1,5 +1,5 @@
 {
-  "platforms": ["android"],
+  "platforms": ["apple", "android"],
   "android": {
     "modules": [
       "com.mjones4.soundzone.SoundZoneForegroundModule"

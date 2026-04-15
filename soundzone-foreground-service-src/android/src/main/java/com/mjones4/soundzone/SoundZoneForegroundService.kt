@@ -43,9 +43,6 @@ class SoundZoneForegroundService : Service() {
         super.onCreate()
         isRunning = true
         createNotificationChannel()
-
-        // Acquire WakeLock with 10 minute timeout for safety
-        // Prevents battery drain if service fails to stop cleanly
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
@@ -56,7 +53,6 @@ class SoundZoneForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Defensive null intent handling
         val action = intent?.action ?: run {
             stopSelf()
             return START_NOT_STICKY
@@ -77,8 +73,6 @@ class SoundZoneForegroundService : Service() {
 
                 val notification = buildNotification(roomCode)
 
-                // Pass FOREGROUND_SERVICE_TYPE_MICROPHONE at runtime
-                // Required by Android 14 — manifest declaration alone is not enough
                 ServiceCompat.startForeground(
                     this,
                     NOTIFICATION_ID,
@@ -90,12 +84,9 @@ class SoundZoneForegroundService : Service() {
                     }
                 )
 
-                // Refresh notification text on update
                 val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
                 manager.notify(NOTIFICATION_ID, notification)
 
-                // Start native heartbeat if url and userId provided
-                // JS thread is suspended when screen locks so heartbeat must be native
                 if (action == ACTION_START && heartbeatUrl != null && userId != null) {
                     startHeartbeat(heartbeatUrl, userId, roomCode)
                 }
@@ -122,7 +113,7 @@ class SoundZoneForegroundService : Service() {
                 try {
                     sendHeartbeat(heartbeatUrl, userId, roomCode)
                 } catch (e: Exception) {
-                    // Network may be briefly unavailable — log but don't crash
+                    // Network may be briefly unavailable
                 }
                 delay(30_000L)
             }
@@ -148,9 +139,6 @@ class SoundZoneForegroundService : Service() {
     }
 
     private fun buildNotification(roomCode: String): Notification {
-        // Use Expo-generated notification_icon drawable
-        // Configured via app.config.js android.notification.icon
-        // Falls back to system icon if not found
         val iconRes = resources.getIdentifier(
             "notification_icon", "drawable", packageName
         ).takeIf { it != 0 } ?: android.R.drawable.ic_btn_speak_now
@@ -161,9 +149,7 @@ class SoundZoneForegroundService : Service() {
 
         val pendingIntent = launchIntent?.let {
             PendingIntent.getActivity(
-                this,
-                0,
-                it,
+                this, 0, it,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
         }
