@@ -1,7 +1,6 @@
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-kapt'
-apply plugin: 'expo-module'
 
 group = 'com.mjones4.soundzone'
 version = '1.0.0'
