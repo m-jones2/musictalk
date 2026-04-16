@@ -50,26 +50,6 @@ module.exports = function withSoundZoneService(config) {
     const projectRoot = cfg.modRequest.projectRoot;
     const androidRoot = path.join(projectRoot, 'android');
 
-    // Step 3 — Copy Kotlin files into Android project
-    const destDir = path.join(androidRoot, 'app/src/main/java', PACKAGE_PATH);
-    fs.mkdirSync(destDir, { recursive: true });
-
-    const srcDir = path.join(projectRoot, 'soundzone-foreground-service-src/android/src/main/java', PACKAGE_PATH);
-    const filesToCopy = [
-      'SoundZoneForegroundService.kt',
-      'SoundZoneForegroundModule.kt',
-    ];
-    for (const file of filesToCopy) {
-      const src = path.join(srcDir, file);
-      const dest = path.join(destDir, file);
-      if (fs.existsSync(src)) {
-        fs.copyFileSync(src, dest);
-        console.log(`[SoundZone Plugin] Copied ${file}`);
-      } else {
-        console.warn(`[SoundZone Plugin] Missing: ${src}`);
-      }
-    }
-
     // Step 4 — Patch settings.gradle
     const settingsGradlePath = path.join(androidRoot, 'settings.gradle');
     if (fs.existsSync(settingsGradlePath)) {
