@@ -1,6 +1,5 @@
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
-apply plugin: 'kotlin-kapt'
 
 group = 'com.mjones4.soundzone'
 version = '1.0.0'
@@ -30,13 +29,7 @@ android {
   }
 }
 
-repositories {
-  mavenCentral()
-  google()
-}
-
 dependencies {
-  implementation "expo.modules:expo-modules-core"
-  kapt "expo.modules:expo-modules-core"
+  compileOnly project(':expo-modules-core')
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
 }
