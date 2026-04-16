@@ -12,7 +12,7 @@ buildscript {
 
 android {
   compileSdkVersion safeExtGet('compileSdkVersion', 36)
-  namespace 'com.mjones4.soundzone'
+  namespace 'com.mjones4.soundzone.fgservice'
 
   defaultConfig {
     minSdkVersion safeExtGet('minSdkVersion', 24)
