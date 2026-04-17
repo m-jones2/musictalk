@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
-  AppState,
   Dimensions,
   PermissionsAndroid,
   Platform,
@@ -15,7 +14,7 @@ import {
   TextInput,
   TouchableOpacity,
   TouchableWithoutFeedback,
-  View,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getUserId } from '../../lib/utils';
@@ -156,24 +155,6 @@ export default function HomeScreen() {
   const overlayAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', async (state) => {
-      if (state === 'active' && userId) {
-        try {
-          const { status } = await Notifications.requestPermissionsAsync();
-          if (status === 'granted') {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            const deviceToken = await Notifications.getDevicePushTokenAsync();
-            await fetch(`${TOKEN_SERVER}/register-push?userId=${userId}&token=${encodeURIComponent(deviceToken.data)}`);
-          }
-        } catch (e: any) {
-          fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent(e.message || 'unknown')}&userId=${userId}`).catch(() => {});
-        }
-      }
-    });
-    return () => subscription.remove();
-  }, [userId]);
-
-  useEffect(() => {
     Promise.all([
       AsyncStorage.getItem('username'),
       getUserId(),
@@ -187,18 +168,10 @@ export default function HomeScreen() {
         const { status } = await Notifications.requestPermissionsAsync();
         if (status === 'granted') {
           await new Promise(resolve => setTimeout(resolve, 2000));
-          let pushToken = '';
-          try {
-            const expoToken = await Notifications.getExpoPushTokenAsync({
-              projectId: '9e5dc256-5eee-4850-acf7-44568d9cb25f',
-            });
-            pushToken = expoToken.data;
-          } catch {
-            const deviceToken = await Notifications.getDevicePushTokenAsync();
-            pushToken = deviceToken.data;
-          }
-          console.log('App launch push token for userId:', id, 'token:', pushToken);
-          await fetch(`${TOKEN_SERVER}/register-push?userId=${id}&token=${encodeURIComponent(pushToken)}`);
+          const expoToken = await Notifications.getExpoPushTokenAsync({
+            projectId: '9e5dc256-5eee-4850-acf7-44568d9cb25f',
+          });
+          await fetch(`${TOKEN_SERVER}/register-push?userId=${id}&token=${encodeURIComponent(expoToken.data)}`);
         }
       } catch (e: any) {
         fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent(e.message || 'unknown')}&userId=${id}`).catch(() => {});
