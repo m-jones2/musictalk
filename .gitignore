@@ -42,3 +42,13 @@ app-example
 /ios
 /android
 google-services.json
+
+# Accidentally committed build artifacts
+*.tgz
+npx
+rd
+type
+npm
+eas
+{
+setUserId(id))
