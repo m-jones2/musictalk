@@ -14,7 +14,6 @@ const getNativeModule = (): SoundZoneForegroundServiceModule | null => {
   if (Platform.OS !== 'android') return null;
   try {
     const mod = requireNativeModule<SoundZoneForegroundServiceModule>('SoundZoneForeground');
-    fetch(`${TOKEN_SERVER}/log-error?error=NATIVE_MODULE_FOUND&userId=system`).catch(() => {});
     return mod;
   } catch (e: any) {
     fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent('NATIVE_MODULE_NOT_FOUND: ' + (e.message || 'unknown'))}&userId=system`).catch(() => {});
@@ -75,8 +74,6 @@ export const startForegroundService = async (
 
   try {
     await module.startService(roomCode, heartbeatUrl, userId);
-    console.log('[ForegroundService] Started for room:', roomCode);
-    fetch(`${TOKEN_SERVER}/log-error?error=FGS_STARTED_OK&userId=${userId}`).catch(() => {});
   } catch (e: any) {
     console.error('[ForegroundService] Failed to start:', e.message);
     fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent('FGS_FAILED: ' + (e.message || 'unknown'))}&userId=${userId}`).catch(() => {});
@@ -118,7 +115,6 @@ export const stopForegroundService = async (): Promise<void> => {
 
   try {
     await module.stopService();
-    console.log('[ForegroundService] Stopped');
   } catch (e: any) {
     console.error('[ForegroundService] Failed to stop:', e.message);
   }
