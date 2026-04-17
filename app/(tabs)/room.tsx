@@ -508,37 +508,6 @@ export default function RoomScreen() {
   useEffect(() => {
     if (!userId) return;
 
-    const registerPushToken = async () => {
-      try {
-        const { status } = await Notifications.requestPermissionsAsync();
-        if (status === 'granted') {
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          let pushToken = '';
-          try {
-            const expoToken = await Notifications.getExpoPushTokenAsync({
-              projectId: '9e5dc256-5eee-4850-acf7-44568d9cb25f',
-            });
-            pushToken = expoToken.data;
-          } catch {
-            const deviceToken = await Notifications.getDevicePushTokenAsync();
-            pushToken = deviceToken.data;
-          }
-          console.log('Registering push token for userId:', userId, 'token:', pushToken);
-          const response = await fetch(`${TOKEN_SERVER}/register-push?userId=${userId}&token=${encodeURIComponent(pushToken)}`);
-          const result = await response.json();
-          console.log('Push registration result:', result);
-        }
-      } catch (e: any) {
-        fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent(e.message || 'unknown')}&userId=${userId}`).catch(() => {});
-      }
-    };
-
-    registerPushToken();
-  }, [userId]);
-
-  useEffect(() => {
-    if (!userId) return;
-
     setToken(null);
     setConnected(false);
     AudioSession.startAudioSession();
@@ -561,7 +530,6 @@ export default function RoomScreen() {
         await startForegroundService(roomCode, userId);
       } catch (e: any) {
         console.warn('[room.tsx] Foreground service failed to start:', e);
-        fetch(`${TOKEN_SERVER}/log-error?error=${encodeURIComponent('ROOM_FGS_FAILED: ' + (e.message || 'unknown'))}&userId=${userId}`).catch(() => {});
       }
     });
 
