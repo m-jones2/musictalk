@@ -35,6 +35,7 @@ class SoundZoneForegroundModule : Module() {
             } else {
                 context.startService(intent)
             }
+            Unit
         }
 
         AsyncFunction("updateService") { roomCode: String ->
@@ -51,6 +52,7 @@ class SoundZoneForegroundModule : Module() {
             } else {
                 context.startService(intent)
             }
+            Unit
         }
 
         AsyncFunction("stopService") {
