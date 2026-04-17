@@ -11,7 +11,7 @@ import Slider from '@react-native-community/slider';
 import * as Notifications from 'expo-notifications';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
+import { Alert, Animated, Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { requestVoicePermissions, startForegroundService, stopForegroundService, updateForegroundService } from '../../foregroundService';
 import { getUserId } from '../../lib/utils';
@@ -528,6 +528,26 @@ export default function RoomScreen() {
       // Passes userId so native Kotlin heartbeat can identify the user
       try {
         await startForegroundService(roomCode, userId);
+        
+        // One-time Samsung battery optimization prompt
+        if (Platform.OS === 'android') {
+          const hasPrompted = await AsyncStorage.getItem('battery_opt_prompted');
+          if (!hasPrompted) {
+            await AsyncStorage.setItem('battery_opt_prompted', 'true');
+            Alert.alert(
+              '🔋 Improve Voice Reliability',
+              'For the best experience, set SoundZone to "Unrestricted" battery usage:\n\nSettings → Apps → SoundZone → Battery → Unrestricted\n\nThis prevents Android from interrupting your voice chat.',
+              [
+                { text: 'Remind Me Later', style: 'cancel',
+                  onPress: async () => {
+                    await AsyncStorage.removeItem('battery_opt_prompted');
+                  }
+                },
+                { text: 'Got It', style: 'default' }
+              ]
+            );
+          }
+        }
       } catch (e: any) {
         console.warn('[room.tsx] Foreground service failed to start:', e);
       }
