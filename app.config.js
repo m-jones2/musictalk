@@ -4,6 +4,9 @@ module.exports = {
     name: "SoundZone",
     slug: "musictalk",
     version: "1.0.0",
+    runtimeVersion: {
+      policy: "sdkVersion"
+    },
     icon: "./assets/images/icon.png",
     scheme: "soundzone",
     splash: {
