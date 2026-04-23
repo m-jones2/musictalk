@@ -380,7 +380,7 @@ export default function HomeScreen() {
         {/* Welcome */}
         <View style={styles.welcomeSection}>
           <Text style={styles.logo}>🎵</Text>
-          <Text style={styles.title}>SoundZone</Text>
+          <Text style={styles.title}>SoundZone App</Text>
           <Text style={styles.welcome}>Welcome{name ? `, ${name}` : ''}!</Text>
         </View>
 
