@@ -46,6 +46,7 @@ google-services.json
 # Accidentally committed build artifacts
 *.tgz
 !soundzone-foreground-service-1.0.0.tgz
+dist/
 npx
 rd
 type

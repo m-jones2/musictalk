@@ -1,4 +1,37 @@
 const { AccessToken } = require('livekit-server-sdk');
+const { Pool } = require('pg');
+
+const db = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+async function initDb() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS join_counts (
+      rc_user_id    TEXT        NOT NULL,
+      month_key     TEXT        NOT NULL,
+      join_count    INT         NOT NULL DEFAULT 0,
+      first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (rc_user_id, month_key)
+    );
+    CREATE TABLE IF NOT EXISTS join_events (
+      rc_user_id  TEXT        NOT NULL,
+      room_id     TEXT        NOT NULL,
+      month_key   TEXT        NOT NULL,
+      joined_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (rc_user_id, room_id, month_key)
+    );
+  `);
+}
+
+initDb().catch(err => console.error('DB init error:', err));
+
+function getCurrentMonthKey() {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+}
 const http = require('http');
 const url = require('url');
 
@@ -177,6 +210,107 @@ const server = http.createServer(async (req, res) => {
     }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ success: true }));
+    return;
+  }
+  
+  // Record a join attempt (atomic, unique room tracking)
+  if (path === '/record-join') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const { rc_user_id, room_id } = JSON.parse(body);
+        if (!rc_user_id || !room_id) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'rc_user_id and room_id required' }));
+          return;
+        }
+
+        const monthKey = getCurrentMonthKey();
+
+        // Try to insert this unique join event
+        // If it already exists (same user + room + month), do nothing
+        const eventResult = await db.query(`
+          INSERT INTO join_events (rc_user_id, room_id, month_key)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (rc_user_id, room_id, month_key) DO NOTHING
+          RETURNING rc_user_id
+        `, [rc_user_id, room_id, monthKey]);
+
+        const isNewRoom = eventResult.rowCount > 0;
+
+        if (isNewRoom) {
+          // Atomically increment the counter
+          const countResult = await db.query(`
+            INSERT INTO join_counts (rc_user_id, month_key, join_count)
+            VALUES ($1, $2, 1)
+            ON CONFLICT (rc_user_id, month_key) DO UPDATE
+              SET join_count = join_counts.join_count + 1,
+                  updated_at = NOW()
+            RETURNING join_count
+          `, [rc_user_id, monthKey]);
+
+          const joinCount = countResult.rows[0].join_count;
+          const remaining = Math.max(0, 15 - joinCount);
+          const allowed = joinCount <= 15;
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ allowed, join_count: joinCount, remaining, new_room: true }));
+        } else {
+          // Already joined this room this month — don't increment
+          const countResult = await db.query(`
+            SELECT join_count FROM join_counts
+            WHERE rc_user_id = $1 AND month_key = $2
+          `, [rc_user_id, monthKey]);
+
+          const joinCount = countResult.rows[0]?.join_count ?? 0;
+          const remaining = Math.max(0, 15 - joinCount);
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ allowed: true, join_count: joinCount, remaining, new_room: false }));
+        }
+      } catch (err) {
+        console.error('/record-join error:', err);
+        // Fail open — never block a user due to backend error
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ allowed: true, join_count: 0, remaining: 15, error: 'db_error' }));
+      }
+    });
+    return;
+  }
+
+  // Get current join status for a user
+  if (path === '/join-status') {
+    const rcUserId = params.rc_user_id;
+    if (!rcUserId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'rc_user_id required' }));
+      return;
+    }
+
+    try {
+      const monthKey = getCurrentMonthKey();
+      const result = await db.query(`
+        SELECT join_count FROM join_counts
+        WHERE rc_user_id = $1 AND month_key = $2
+      `, [rcUserId, monthKey]);
+
+      const joinCount = result.rows[0]?.join_count ?? 0;
+      const remaining = Math.max(0, 15 - joinCount);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        join_count: joinCount,
+        remaining,
+        limit: 15,
+        limit_reached: joinCount >= 15,
+      }));
+    } catch (err) {
+      console.error('/join-status error:', err);
+      // Fail open
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ join_count: 0, remaining: 15, limit: 15, limit_reached: false, error: 'db_error' }));
+    }
     return;
   }
 
