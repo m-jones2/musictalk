@@ -17,7 +17,7 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getSubscriptionInfo, recordJoin } from '../../lib/subscriptionService';
+import { getCreateStatus, getSubscriptionInfo, recordCreate, recordJoin } from '../../lib/subscriptionService';
 import { getUserId } from '../../lib/utils';
 
 const TOKEN_SERVER = 'https://musictalk-production.up.railway.app';
@@ -150,6 +150,8 @@ export default function HomeScreen() {
   const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
   const [rightDrawerOpen, setRightDrawerOpen] = useState(false);
   const [animating, setAnimating] = useState(false);
+  const [createCount, setCreateCount] = useState(0);
+  const [subHasAccess, setSubHasAccess] = useState(false);
 
   const leftAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const rightAnim = useRef(new Animated.Value(DRAWER_WIDTH)).current;
@@ -268,6 +270,12 @@ export default function HomeScreen() {
     useCallback(() => {
       loadContacts();
       const interval = setInterval(loadContacts, 10000);
+
+      // Refresh subscription and create status on every focus
+      // This handles returning from paywall
+      getSubscriptionInfo().then(info => setSubHasAccess(info.hasProAccess));
+      getCreateStatus().then(status => setCreateCount(status.createCount));
+
       return () => clearInterval(interval);
     }, [])
   );
@@ -356,13 +364,22 @@ export default function HomeScreen() {
     if (name.length < 2) return;
 
     const subInfo = await getSubscriptionInfo();
-    if (!subInfo.hasProAccess) {
+    if (subInfo.hasProAccess) {
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      router.push({ pathname: '/(tabs)/room', params: { code, name } });
+      return;
+    }
+
+    if (createCount >= 2) {
       router.push({ pathname: '/paywall', params: { reason: 'create' } });
       return;
     }
 
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     router.push({ pathname: '/(tabs)/room', params: { code, name } });
+    recordCreate().then(result => {
+      setCreateCount(result.createCount);
+    });
   };
 
   const joinGroup = () => {
@@ -447,6 +464,26 @@ export default function HomeScreen() {
               );
             })}
           </View>
+        )}
+
+        {!subHasAccess && createCount === 1 && (
+          <TouchableOpacity
+            style={styles.createBanner}
+            onPress={() => router.push({ pathname: '/paywall', params: { reason: 'create' } })}
+          >
+            <Text style={styles.createBannerTitle}>🎙 Create 1 more group free</Text>
+            <Text style={styles.createBannerLink}>Start 14-day free trial →</Text>
+          </TouchableOpacity>
+        )}
+
+        {!subHasAccess && createCount >= 2 && (
+          <TouchableOpacity
+            style={[styles.createBanner, styles.createBannerLocked]}
+            onPress={() => router.push({ pathname: '/paywall', params: { reason: 'create' } })}
+          >
+            <Text style={styles.createBannerTitle}>🔒 You've used your free group creations</Text>
+            <Text style={styles.createBannerLink}>Start 14-day free trial →</Text>
+          </TouchableOpacity>
         )}
 
         {name.length < 2 && (
@@ -719,6 +756,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     marginTop: 24,
+  },
+  createBanner: {
+    width: '100%',
+    backgroundColor: '#1a2e1f',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1DB954',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    gap: 4,
+  },
+  createBannerLocked: {
+    backgroundColor: '#1a1a1a',
+    borderColor: '#444444',
+  },
+  createBannerTitle: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  createBannerLink: {
+    color: '#1DB954',
+    fontSize: 13,
   },
   overlay: {
     position: 'absolute',

@@ -152,6 +152,101 @@ export async function getJoinStatus(): Promise<{
   }
 }
 
+// ─── Generate a unique request ID for idempotency ────────────────────────────
+function generateRequestId(): string {
+  return 'req_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+}
+
+// ─── Get current create status ───────────────────────────────────────────────
+export async function getCreateStatus(): Promise<{
+  createCount: number;
+  remaining: number;
+  limitReached: boolean;
+}> {
+  try {
+    const rcUserId = await getRcUserId();
+    const response = await fetch(
+      `${SERVER_URL}/create-status?rc_user_id=${encodeURIComponent(rcUserId)}`
+    );
+    const data = await response.json();
+    return {
+      createCount: data.create_count ?? 0,
+      remaining: data.remaining ?? 2,
+      limitReached: data.limit_reached ?? false,
+    };
+  } catch (err) {
+    console.error('getCreateStatus error:', err);
+    // Fail open — read local fallback
+    const local = await getLocalCreateCount();
+    return {
+      createCount: local,
+      remaining: Math.max(0, 2 - local),
+      limitReached: local >= 2,
+    };
+  }
+}
+
+// ─── Record a create attempt ──────────────────────────────────────────────────
+export async function recordCreate(): Promise<{
+  allowed: boolean;
+  createCount: number;
+  remaining: number;
+}> {
+  const requestId = generateRequestId();
+  try {
+    const rcUserId = await getRcUserId();
+    const response = await fetch(`${SERVER_URL}/record-create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rc_user_id: rcUserId, request_id: requestId }),
+    });
+    const data = await response.json();
+
+    // Sync local fallback counter with server value
+    if (data.create_count !== undefined) {
+      await setLocalCreateCount(data.create_count);
+    }
+
+    return {
+      allowed: data.allowed ?? true,
+      createCount: data.create_count ?? 0,
+      remaining: data.remaining ?? 2,
+    };
+  } catch (err) {
+    console.error('recordCreate error:', err);
+    // Fail open with local fallback
+    const local = await getLocalCreateCount();
+    if (local >= 2) {
+      return { allowed: false, createCount: local, remaining: 0 };
+    }
+    const newLocal = local + 1;
+    await setLocalCreateCount(newLocal);
+    return {
+      allowed: true,
+      createCount: newLocal,
+      remaining: Math.max(0, 2 - newLocal),
+    };
+  }
+}
+
+// ─── Local create count fallback (AsyncStorage) ───────────────────────────────
+const LOCAL_CREATE_COUNT_KEY = 'local_create_count';
+
+async function getLocalCreateCount(): Promise<number> {
+  try {
+    const val = await AsyncStorage.getItem(LOCAL_CREATE_COUNT_KEY);
+    return val ? parseInt(val, 10) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function setLocalCreateCount(count: number): Promise<void> {
+  try {
+    await AsyncStorage.setItem(LOCAL_CREATE_COUNT_KEY, String(count));
+  } catch {}
+}
+
 // ─── Initialize RevenueCat (call once at app startup) ────────────────────────
 export async function initializeSubscriptions(): Promise<void> {
   if (USE_MOCK) return; // No-op in mock mode
