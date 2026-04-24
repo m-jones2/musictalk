@@ -1,15 +1,28 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { getSubscriptionInfo, recordJoin } from '../../lib/subscriptionService';
 
 export default function JoinScreen() {
   const router = useRouter();
   const { name } = useLocalSearchParams();
   const [code, setCode] = useState('');
 
-  const joinGroup = () => {
+  const joinGroup = async () => {
     if (code.length < 4) return;
-    router.push({ pathname: '/(tabs)/room', params: { code: code.toUpperCase(), name } });
+
+    const subInfo = await getSubscriptionInfo();
+    if (subInfo.hasProAccess) {
+      router.push({ pathname: '/(tabs)/room', params: { code: code.toUpperCase(), name } });
+      return;
+    }
+
+    const joinResult = await recordJoin(code.toUpperCase());
+    if (joinResult.allowed) {
+      router.push({ pathname: '/(tabs)/room', params: { code: code.toUpperCase(), name } });
+    } else {
+      router.push({ pathname: '/paywall', params: { reason: 'join_limit' } });
+    }
   };
 
   return (

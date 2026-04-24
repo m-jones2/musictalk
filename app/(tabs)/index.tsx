@@ -17,6 +17,7 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getSubscriptionInfo, recordJoin } from '../../lib/subscriptionService';
 import { getUserId } from '../../lib/utils';
 
 const TOKEN_SERVER = 'https://musictalk-production.up.railway.app';
@@ -333,15 +334,33 @@ export default function HomeScreen() {
     );
   };
 
-  const joinContact = (contact: Contact) => {
+  const joinContact = async (contact: Contact) => {
     const status = statuses[contact.userId];
-    if (status?.online && status.room) {
+    if (!status?.online || !status.room) return;
+
+    const subInfo = await getSubscriptionInfo();
+    if (subInfo.hasProAccess) {
       router.push({ pathname: '/(tabs)/room', params: { code: status.room, name } });
+      return;
+    }
+
+    const joinResult = await recordJoin(status.room);
+    if (joinResult.allowed) {
+      router.push({ pathname: '/(tabs)/room', params: { code: status.room, name } });
+    } else {
+      router.push({ pathname: '/paywall', params: { reason: 'join_limit' } });
     }
   };
 
-  const createGroup = () => {
+  const createGroup = async () => {
     if (name.length < 2) return;
+
+    const subInfo = await getSubscriptionInfo();
+    if (!subInfo.hasProAccess) {
+      router.push({ pathname: '/paywall', params: { reason: 'create' } });
+      return;
+    }
+
     const code = Math.random().toString(36).substring(2, 8).toUpperCase();
     router.push({ pathname: '/(tabs)/room', params: { code, name } });
   };

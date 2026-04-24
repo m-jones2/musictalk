@@ -23,6 +23,22 @@ async function initDb() {
       joined_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (rc_user_id, room_id, month_key)
     );
+    CREATE TABLE IF NOT EXISTS create_counts (
+      rc_user_id    TEXT        NOT NULL,
+      create_count  INT         NOT NULL DEFAULT 0,
+      first_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (rc_user_id)
+    );
+    CREATE TABLE IF NOT EXISTS create_requests (
+      request_id    TEXT        NOT NULL,
+      rc_user_id    TEXT        NOT NULL,
+      response_json JSONB       NOT NULL,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (request_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_create_requests_created_at
+      ON create_requests(created_at);
   `);
 }
 
@@ -311,6 +327,117 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ join_count: 0, remaining: 15, limit: 15, limit_reached: false, error: 'db_error' }));
     }
+    return;
+  }
+
+  // Get create status for a user
+  if (path === '/create-status') {
+    const rcUserId = params.rc_user_id;
+    if (!rcUserId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'rc_user_id required' }));
+      return;
+    }
+    try {
+      const result = await db.query(`
+        SELECT create_count FROM create_counts
+        WHERE rc_user_id = $1
+      `, [rcUserId]);
+      const createCount = result.rows[0]?.create_count ?? 0;
+      const remaining = Math.max(0, 2 - createCount);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        create_count: createCount,
+        remaining,
+        limit: 2,
+        limit_reached: createCount >= 2,
+      }));
+    } catch (err) {
+      console.error('/create-status error:', err);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ create_count: 0, remaining: 2, limit: 2, limit_reached: false, error: 'db_error' }));
+    }
+    return;
+  }
+
+  // Record a create attempt (check-then-increment, atomic, idempotent)
+  if (path === '/record-create') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const { rc_user_id, request_id } = JSON.parse(body);
+        if (!rc_user_id || !request_id) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'rc_user_id and request_id required' }));
+          return;
+        }
+
+        // Check for duplicate request — return cached response if exists
+        const dupCheck = await db.query(`
+          SELECT response_json FROM create_requests
+          WHERE request_id = $1
+        `, [request_id]);
+        if (dupCheck.rows.length > 0) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(dupCheck.rows[0].response_json));
+          return;
+        }
+
+        // Get current count
+        const countResult = await db.query(`
+          SELECT create_count FROM create_counts
+          WHERE rc_user_id = $1
+        `, [rc_user_id]);
+        const currentCount = countResult.rows[0]?.create_count ?? 0;
+
+        let response;
+        if (currentCount >= 2) {
+          // Limit reached — do not increment
+          response = {
+            allowed: false,
+            create_count: currentCount,
+            remaining: 0,
+          };
+        } else {
+          // Atomic increment
+          const updated = await db.query(`
+            INSERT INTO create_counts (rc_user_id, create_count)
+            VALUES ($1, 1)
+            ON CONFLICT (rc_user_id) DO UPDATE
+              SET create_count = create_counts.create_count + 1,
+                  updated_at = NOW()
+            RETURNING create_count
+          `, [rc_user_id]);
+          const newCount = updated.rows[0].create_count;
+          response = {
+            allowed: true,
+            create_count: newCount,
+            remaining: Math.max(0, 2 - newCount),
+          };
+        }
+
+        // Store request for idempotency — prune requests older than 24 hours
+        await db.query(`
+          INSERT INTO create_requests (request_id, rc_user_id, response_json)
+          VALUES ($1, $2, $3)
+          ON CONFLICT (request_id) DO NOTHING
+        `, [request_id, rc_user_id, JSON.stringify(response)]);
+        await db.query(`
+          DELETE FROM create_requests
+          WHERE created_at < NOW() - INTERVAL '24 hours'
+        `);
+
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(response));
+
+      } catch (err) {
+        console.error('/record-create error:', err);
+        // Fail open
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ allowed: true, create_count: 0, remaining: 2, error: 'db_error' }));
+      }
+    });
     return;
   }
 
