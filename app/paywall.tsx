@@ -127,7 +127,7 @@ export default function PaywallScreen() {
 
         {/* Trial badge */}
         <View style={styles.trialBadge}>
-          <Text style={styles.trialBadgeText}>✦ 14-DAY FREE TRIAL INCLUDED</Text>
+          <Text style={styles.trialBadgeText}>✦ 5-DAY FREE TRIAL INCLUDED</Text>
         </View>
 
         {/* Feature list — compact */}

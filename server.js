@@ -51,9 +51,14 @@ function getCurrentMonthKey() {
 const http = require('http');
 const url = require('url');
 
-const API_KEY = 'API8pH7DjdozgXn';
-const API_SECRET = 'hfOoTA56befhe6yrAduoDJRVBt4fFIuJuKcMf6C3GwKN';
+const API_KEY = process.env.LIVEKIT_API_KEY;
+const API_SECRET = process.env.LIVEKIT_API_SECRET;
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+
+if (!API_KEY || !API_SECRET) {
+  console.error('Missing LIVEKIT_API_KEY or LIVEKIT_API_SECRET environment variables');
+  process.exit(1);
+}
 
 const activeUsers = {};
 const pushTokens = {};
@@ -76,7 +81,7 @@ setInterval(() => {
 }, 15000);
 
 const server = http.createServer(async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://musictalk-production.up.railway.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -232,7 +237,16 @@ const server = http.createServer(async (req, res) => {
   // Record a join attempt (atomic, unique room tracking)
   if (path === '/record-join') {
     let body = '';
-    req.on('data', chunk => { body += chunk; });
+    let bodySize = 0;
+    req.on('data', chunk => {
+      bodySize += chunk.length;
+      if (bodySize > 1024) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Request too large' }));
+        return;
+      }
+      body += chunk;
+    });
     req.on('end', async () => {
       try {
         const { rc_user_id, room_id } = JSON.parse(body);
@@ -363,7 +377,16 @@ const server = http.createServer(async (req, res) => {
   // Record a create attempt (check-then-increment, atomic, idempotent)
   if (path === '/record-create') {
     let body = '';
-    req.on('data', chunk => { body += chunk; });
+    let bodySize = 0;
+    req.on('data', chunk => {
+      bodySize += chunk.length;
+      if (bodySize > 1024) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Request too large' }));
+        return;
+      }
+      body += chunk;
+    });
     req.on('end', async () => {
       try {
         const { rc_user_id, request_id } = JSON.parse(body);
@@ -441,12 +464,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  /// Debug - check push tokens (remove before launch)
-  if (path === '/debug-tokens') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ tokens: Object.keys(pushTokens), count: Object.keys(pushTokens).length }));
-    return;
-  }
   // Log client errors for debugging
   if (path === '/log-error') {
     console.log('Client error - userId:', params.userId, 'error:', params.error);
