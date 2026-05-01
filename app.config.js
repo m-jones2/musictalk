@@ -16,6 +16,9 @@ module.exports = {
     },
     android: {
       package: "com.mjones4.soundzone",
+      enableProguardInReleaseBuilds: true,
+      enableShrinkResourcesInReleaseBuilds: true,
+      // ... rest of your existing android config
       googleServicesFile: process.env.GOOGLE_SERVICES_JSON || "./google-services.json",
       adaptiveIcon: {
         foregroundImage: "./assets/images/android-icon-foreground.png",
